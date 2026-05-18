@@ -1,8 +1,7 @@
-// Service worker devre dışı
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', () => {
-  caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
-});
-self.addEventListener('fetch', event => {
-  event.respondWith(fetch(event.request));
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+  );
+  self.clients.claim();
 });
