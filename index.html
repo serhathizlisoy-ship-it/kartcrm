@@ -138,10 +138,10 @@
     <canvas id="camera-canvas" style="display:none;"></canvas>
 
     <!-- Dosyadan yükleme (galeri) -->
-    <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="file-input" accept="image/*" style="display:none;">
 
     <button class="btn-primary" id="btn-capture">📸 Fotoğraf Çek</button>
-    <button class="btn-sec" id="btn-gallery">🖼 Galeriden Seç</button>
+    <label for="file-input" class="btn-sec" style="display:block;text-align:center;cursor:pointer;padding:13px;border-radius:12px;background:#fff;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;">🖼 Galeriden Seç</label>
 
     <div class="ai-hint" id="ocr-loading" style="display:none;">
       ⏳ AI kartviziti okuyor...
