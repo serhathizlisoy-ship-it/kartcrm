@@ -287,6 +287,7 @@ Bulamazsan boş string bırak.`
     const text = data.content?.[0]?.text || '{}';
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
+console.log('AI yanıtı:', parsed);
 
     currentContact = { ...currentContact, ...parsed };
     fillVerifyForm(parsed);
