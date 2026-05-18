@@ -2,7 +2,7 @@
 // KARTCRM - app.js v2
 // =====================
 
-const CLAUDE_API_KEY = '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';
+const CLAUDE_API_KEY = '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';
 
 let contacts = JSON.parse(localStorage.getItem('kartcrm_contacts') || '[]');
 let selectedCategory = '';
