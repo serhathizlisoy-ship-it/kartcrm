@@ -2,7 +2,7 @@
 // KARTCRM - app.js
 // =====================
 
-const CLAUDE_API_KEY = 'YOUR_CLAUDE_API_KEY_HERE'; // Buraya kendi API anahtarını yaz
+const CLAUDE_API_KEY = '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'; // Buraya kendi API anahtarını yaz
 
 // =====================
 // STATE
