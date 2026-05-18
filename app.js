@@ -167,6 +167,7 @@ function openDetail(id) {
   const info = document.getElementById('detail-info');
   const rows = [
     { icon: '📞', lbl: 'Tel',    val: c.phone,   href: c.phone ? `tel:${c.phone}` : null },
+    { icon: '📱', lbl: 'GSM',    val: c.gsm,     href: c.gsm ? `tel:${c.gsm}` : null },
     { icon: '📠', lbl: 'Fax',    val: c.fax },
     { icon: '✉️', lbl: 'Mail',   val: c.email,   href: c.email ? `mailto:${c.email}` : null },
     { icon: '🌐', lbl: 'Web',    val: c.web,     href: c.web ? (c.web.startsWith('http') ? c.web : 'https://' + c.web) : null },
@@ -200,6 +201,7 @@ function fillForm(data) {
   document.getElementById('f-company').value = data.company || '';
   document.getElementById('f-title').value   = data.title   || '';
   document.getElementById('f-phone').value   = data.phone   || '';
+  document.getElementById('f-gsm').value     = data.gsm     || '';
   document.getElementById('f-fax').value     = data.fax     || '';
   document.getElementById('f-email').value   = data.email   || '';
   document.getElementById('f-web').value     = data.web     || '';
@@ -213,6 +215,7 @@ function readForm() {
     company: document.getElementById('f-company').value.trim(),
     title:   document.getElementById('f-title').value.trim(),
     phone:   document.getElementById('f-phone').value.trim(),
+    gsm:     document.getElementById('f-gsm').value.trim(),
     fax:     document.getElementById('f-fax').value.trim(),
     email:   document.getElementById('f-email').value.trim(),
     web:     document.getElementById('f-web').value.trim(),
@@ -303,7 +306,7 @@ function exportExcel() {
   if (!contacts.length) { showToast('Henüz kişi yok'); return; }
   const rows = contacts.map(c => ({
     'Ad Soyad': c.name||'', 'Firma': c.company||'', 'Unvan': c.title||'',
-    'Telefon': c.phone||'', 'Fax': c.fax||'', 'E-posta': c.email||'',
+    'Telefon': c.phone||'', 'GSM': c.gsm||'', 'Fax': c.fax||'', 'E-posta': c.email||'',
     'Web sitesi': c.web||'', 'Adres': c.address||'', 'Sektör': c.sector||'',
     'Kategori': c.category||'', 'Not': c.note||'',
     'Tarih': c.createdAt ? new Date(c.createdAt).toLocaleDateString('tr-TR') : '',

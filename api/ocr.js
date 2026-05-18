@@ -17,7 +17,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 800,
         messages: [{
           role: 'user',
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
             },
             {
               type: 'text',
-              text: 'Bu kartvizit görselindeki bilgileri çıkar. SADECE geçerli JSON döndür, başka hiçbir şey yazma:\n{"name":"","company":"","title":"","phone":"","fax":"","email":"","web":"","address":"","sector":""}'
+              text: 'Bu kartvizit görselindeki bilgileri çıkar. SADECE geçerli JSON döndür, başka hiçbir şey yazma:\n{"name":"","company":"","title":"","phone":"","gsm":"","fax":"","email":"","web":"","address":"","sector":""}'
             }
           ]
         }]
