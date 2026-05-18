@@ -1,0 +1,22 @@
+{
+  "name": "KartCRM",
+  "short_name": "KartCRM",
+  "description": "Kartvizitlerini dijitale taşı",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EEF0F8",
+  "theme_color": "#4B5FFA",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
