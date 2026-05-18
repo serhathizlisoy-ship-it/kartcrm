@@ -258,40 +258,16 @@ async function sendToAI(dataUrl) {
   showScreen('screen-camera');
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/ocr', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 800,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-            { type: 'text', text: 'Bu kartvizit görselindeki bilgileri çıkar. SADECE geçerli JSON döndür, başka hiçbir şey yazma:\n{"name":"","company":"","title":"","phone":"","fax":"","email":"","web":"","address":"","sector":""}' }
-          ]
-        }]
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64 })
     });
 
-    if (!response.ok) {
-      throw new Error('API ' + response.status);
-    }
+    if (!response.ok) throw new Error('Sunucu hatası: ' + response.status);
 
-    const data = await response.json();
-    const rawText = data.content?.[0]?.text || '';
-    console.log('AI:', rawText);
-
-    let parsed = {};
-    const m = rawText.match(/\{[\s\S]*\}/);
-    if (m) {
-      try { parsed = JSON.parse(m[0]); } catch(e) { console.error('Parse err', e); }
-    }
+    const parsed = await response.json();
+    console.log('AI:', parsed);
 
     fillForm(parsed);
     document.getElementById('ocr-loading').style.display = 'none';
@@ -306,7 +282,6 @@ async function sendToAI(dataUrl) {
     showScreen('screen-verify');
   }
 }
-
 function saveContact(note, category) {
   const formData = readForm();
   if (editMode && currentDetailId) {
