@@ -226,14 +226,18 @@ async function startCamera(videoId) {
 function capturePhoto() {
   const video = document.getElementById('camera-video');
   const canvas = document.getElementById('camera-canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+  
+  // Maksimum 800px genişlik
+  const maxW = 800;
+  const ratio = Math.min(maxW / video.videoWidth, 1);
+  canvas.width = video.videoWidth * ratio;
+  canvas.height = video.videoHeight * ratio;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
   stopCamera(video);
   sendToAI(dataUrl);
 }
-
 // =====================
 // AI — CLAUDE API
 // =====================
