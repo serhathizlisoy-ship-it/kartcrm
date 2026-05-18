@@ -258,7 +258,7 @@ async function sendToAI(dataUrl) {
   showScreen('screen-camera');
 
   try {
-    const response = await fetch('/api/ocr', {
+    const response = await fetch('https://kartcrm.vercel.app/api/ocr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64: base64 })
@@ -442,3 +442,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
