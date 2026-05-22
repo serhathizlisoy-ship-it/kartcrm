@@ -135,12 +135,18 @@ async function register() {
 
 // ---- CONTACTS ----
 var contacts = [];
+var userCompaniesCache = [];
 var searchQuery = '';
 
 async function loadContacts() {
   var data = await apiGet('/api/contacts');
   if (!data) return;
-  contacts = Array.isArray(data) ? data : [];
+  if (data.contacts) {
+    contacts = data.contacts;
+    userCompaniesCache = data.userCompanies || [];
+  } else {
+    contacts = Array.isArray(data) ? data : [];
+  }
   renderContacts();
   updateStats();
 }
@@ -165,20 +171,42 @@ function renderContacts() {
   }
   if (empty) empty.style.display = 'none';
 
+  // Kullanici sirketlerine gore grupla
   var groups = {};
+  userCompaniesCache.forEach(function(uc) {
+    groups[uc.id] = { id: uc.id, name: uc.company_name, title: uc.title, contacts: [] };
+  });
+  groups['__unassigned__'] = { id: '__unassigned__', name: 'Diger', title: '', contacts: [] };
+
   list.forEach(function(c) {
-    var key = c.company_name || '—';
-    if (!groups[key]) groups[key] = { name: key, sector: c.sector, contacts: [] };
-    groups[key].contacts.push(c);
+    var ucIds = [];
+    if (c.user_company_ids) {
+      try { ucIds = Array.isArray(c.user_company_ids) ? c.user_company_ids : JSON.parse(c.user_company_ids); }
+      catch(e) { ucIds = []; }
+    }
+    if (ucIds.length === 0) {
+      groups['__unassigned__'].contacts.push(c);
+    } else {
+      var added = false;
+      ucIds.forEach(function(ucId) {
+        if (groups[ucId]) { groups[ucId].contacts.push(c); added = true; }
+      });
+      if (!added) groups['__unassigned__'].contacts.push(c);
+    }
   });
 
-  var groupList = Object.values(groups).sort(function(a, b) { return b.contacts.length - a.contacts.length; });
+  var groupList = Object.values(groups).filter(function(g) { return g.contacts.length > 0; })
+    .sort(function(a, b) {
+      if (a.id === '__unassigned__') return 1;
+      if (b.id === '__unassigned__') return -1;
+      return b.contacts.length - a.contacts.length;
+    });
 
   container.innerHTML = groupList.map(function(g) {
     return '<div class="company-group">' +
       '<div class="company-group-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">' +
         '<div><div class="company-group-name">' + g.name + '</div>' +
-        (g.sector ? '<div class="company-group-sector">' + g.sector + '</div>' : '') + '</div>' +
+        (g.title ? '<div class="company-group-sector">' + g.title + '</div>' : '') + '</div>' +
         '<div class="company-group-count">' + g.contacts.length + '</div>' +
       '</div>' +
       '<div class="company-group-list">' +
