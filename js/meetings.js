@@ -5,7 +5,7 @@ let meetingData = {
   personId: null,
   personName: null,
   companyId: null,
-  userCompanyId: null,
+  userCompanyIds: [],
   category: null,
   city: null,
   notes: '',
@@ -16,11 +16,8 @@ let aiResult = null;
 let recognition = null;
 let isRecording = false;
 
-// =====================
-// ADIM YÖNETİMİ
-// =====================
 export function startMeetingFlow(personId, personName, companyId) {
-  meetingData = { personId, personName, companyId, userCompanyId: null, category: null, city: null, notes: '', step: 1 };
+  meetingData = { personId, personName, companyId, userCompanyIds: [], category: null, city: null, notes: '', step: 1 };
   aiResult = null;
   renderStep1();
   showScreen('screen-meeting');
@@ -29,7 +26,7 @@ export function startMeetingFlow(personId, personName, companyId) {
 function renderStepBar(current) {
   const bar = document.getElementById('meeting-step-bar');
   if (!bar) return;
-  bar.innerHTML = [1,2,3,4].map(i => 
+  bar.innerHTML = [1,2,3,4].map(i =>
     `<div class="step-dot ${i < current ? 'done' : i === current ? 'active' : ''}"></div>`
   ).join('');
 }
@@ -40,16 +37,12 @@ function renderPersonTag() {
   el.innerHTML = `
     <div class="person-tag-inner">
       <div class="meeting-avatar">${meetingData.personName?.split(' ').map(n=>n[0]).join('').slice(0,2) || '?'}</div>
-      <div>
-        <div class="meeting-person-name">${meetingData.personName || ''}</div>
-      </div>
+      <div><div class="meeting-person-name">${meetingData.personName || ''}</div></div>
     </div>
   `;
 }
 
-// =====================
-// ADIM 1: KİMİ TEMSİL EDİYORDUN
-// =====================
+// ADIM 1: KİMİ TEMSİL EDİYORDUN (ÇOKLU SEÇİM)
 async function renderStep1() {
   meetingData.step = 1;
   renderStepBar(1);
@@ -61,25 +54,26 @@ async function renderStep1() {
   if (!companies || companies.length === 0) {
     body.innerHTML = `
       <div class="step-question">Kimi temsil ediyordun?</div>
-      <div class="step-sub">Hangi sıfatla görüştün?</div>
+      <div class="step-sub">Bir veya birden fazla seçebilirsin</div>
       <div class="warning-box">
         <div class="warning-text">Kayıtlı Şirket Kimliğiniz Bulunamadı.<br>Lütfen sisteme şirket girişi yapınız.</div>
-        <button class="warning-btn" onclick="window.showScreen('screen-profile')">Şirket Ekle</button>
+        <button class="warning-btn" onclick="window.location='#profile'">Şirket Ekle</button>
       </div>
       <button class="btn-skip" onclick="window.nextStep()">Şimdi Değil, Geç</button>
     `;
     return;
   }
 
+  // Varsayılan şirketi önceden seç
   const defaultCo = companies.find(c => c.is_default);
-  if (defaultCo) meetingData.userCompanyId = defaultCo.id;
+  if (defaultCo) meetingData.userCompanyIds = [defaultCo.id];
 
   body.innerHTML = `
     <div class="step-question">Kimi temsil ediyordun?</div>
-    <div class="step-sub">Hangi sıfatla görüştün?</div>
+    <div class="step-sub">Bir veya birden fazla seçebilirsin</div>
     <div id="company-list">
       ${companies.map(c => `
-        <div class="company-select-card ${c.is_default ? 'selected' : ''}" data-id="${c.id}" onclick="window.selectUserCompany('${c.id}', this)">
+        <div class="company-select-card ${c.is_default ? 'selected' : ''}" data-id="${c.id}" onclick="window.toggleUserCompany('${c.id}', this)">
           <div>
             <div class="cs-name">${c.company_name}</div>
             <div class="cs-title">${c.title || ''}</div>
@@ -87,31 +81,35 @@ async function renderStep1() {
           <div class="cs-check ${c.is_default ? 'active' : ''}">✓</div>
         </div>
       `).join('')}
-      <div class="company-select-card ${!defaultCo ? 'selected' : ''}" data-id="" onclick="window.selectUserCompany('', this)">
+      <div class="company-select-card" data-id="personal" onclick="window.toggleUserCompany('personal', this)">
         <div>
           <div class="cs-name">Şahsen</div>
           <div class="cs-title">Kişisel</div>
         </div>
-        <div class="cs-check ${!defaultCo ? 'active' : ''}">✓</div>
+        <div class="cs-check">✓</div>
       </div>
     </div>
     <button class="btn-meeting-next" onclick="window.nextStep()">İleri →</button>
   `;
 }
 
-window.selectUserCompany = function(id, el) {
-  document.querySelectorAll('.company-select-card').forEach(c => {
-    c.classList.remove('selected');
-    c.querySelector('.cs-check')?.classList.remove('active');
-  });
-  el.classList.add('selected');
-  el.querySelector('.cs-check')?.classList.add('active');
-  meetingData.userCompanyId = id || null;
+// Çoklu seçim toggle
+window.toggleUserCompany = function(id, el) {
+  const isSelected = el.classList.contains('selected');
+  if (isSelected) {
+    el.classList.remove('selected');
+    el.querySelector('.cs-check')?.classList.remove('active');
+    meetingData.userCompanyIds = meetingData.userCompanyIds.filter(x => x !== id);
+  } else {
+    el.classList.add('selected');
+    el.querySelector('.cs-check')?.classList.add('active');
+    if (id !== 'personal') {
+      meetingData.userCompanyIds.push(id);
+    }
+  }
 };
 
-// =====================
 // ADIM 2: NEREDE TANIŞTILAR
-// =====================
 function renderStep2() {
   meetingData.step = 2;
   renderStepBar(2);
@@ -142,9 +140,7 @@ window.selectCategory = function(cat, el) {
   meetingData.category = cat;
 };
 
-// =====================
 // ADIM 3: NE KONUŞTUNUZ
-// =====================
 function renderStep3() {
   meetingData.step = 3;
   renderStepBar(3);
@@ -173,10 +169,7 @@ window.toggleMic = function() {
     return;
   }
 
-  if (isRecording) {
-    recognition?.stop();
-    return;
-  }
+  if (isRecording) { recognition?.stop(); return; }
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
@@ -188,7 +181,6 @@ window.toggleMic = function() {
   const micBtn = document.getElementById('btn-mic');
   const micLabel = document.getElementById('mic-label');
   const micIconWrap = document.getElementById('mic-icon-wrap');
-
   let finalTranscript = textarea?.value || '';
 
   recognition.onstart = () => {
@@ -201,11 +193,8 @@ window.toggleMic = function() {
   recognition.onresult = (e) => {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) {
-        finalTranscript += e.results[i][0].transcript + ' ';
-      } else {
-        interim += e.results[i][0].transcript;
-      }
+      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
     }
     if (textarea) textarea.value = finalTranscript + interim;
   };
@@ -221,9 +210,7 @@ window.toggleMic = function() {
   recognition.start();
 };
 
-// =====================
 // ADIM 4: AI ÖZET
-// =====================
 async function renderStep4() {
   meetingData.step = 4;
   renderStepBar(4);
@@ -235,22 +222,14 @@ async function renderStep4() {
     <div class="step-question">Görüşme Kartı</div>
     <div class="step-sub">AI analiz ediyor...</div>
     <div class="ai-loading">
-      <div class="ai-dot"></div>
-      <div class="ai-dot"></div>
-      <div class="ai-dot"></div>
+      <div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>
       <span>Görüşme analiz ediliyor</span>
     </div>
   `;
 
-  // AI analizi yap
   if (notes && notes.length > 10) {
-    const result = await apiPost('/api/ai', {
-      notes,
-      person_name: meetingData.personName
-    });
-    if (result && !result.error) {
-      aiResult = result;
-    }
+    const result = await apiPost('/api/ai', { notes, person_name: meetingData.personName });
+    if (result && !result.error) aiResult = result;
   }
 
   renderAiResult();
@@ -260,15 +239,22 @@ function renderAiResult() {
   const body = document.getElementById('meeting-body');
   const r = aiResult || {};
 
+  // Seçilen şirket isimlerini göster
+  const ucLabel = meetingData.userCompanyIds.length > 0
+    ? `<div class="gc-uc-label">Temsil: <strong>${meetingData.userCompanyIds.map(id => {
+        const el = document.querySelector(`.company-select-card[data-id="${id}"] .cs-name`);
+        return el?.textContent || id;
+      }).join(' + ')}</strong></div>`
+    : '';
+
   body.innerHTML = `
     <div class="step-question">Görüşme Kartı</div>
     <div class="ai-badge-row"><span class="ai-badge">AI Özeti</span></div>
+    ${ucLabel}
 
     ${r.summary ? `
       <div class="gc-section-lbl">Görüşme Özeti</div>
-      <div class="gc-card">
-        <div class="gc-text" id="ai-summary-text">${r.summary}</div>
-      </div>
+      <div class="gc-card"><div class="gc-text">${r.summary}</div></div>
     ` : ''}
 
     ${r.actions && r.actions.length > 0 ? `
@@ -297,9 +283,7 @@ function renderAiResult() {
 
     ${r.followup ? `
       <div class="gc-section-lbl">Beklenen Dönüş</div>
-      <div class="gc-card">
-        <div class="gc-text">${r.followup}</div>
-      </div>
+      <div class="gc-card"><div class="gc-text">${r.followup}</div></div>
     ` : ''}
 
     ${!r.summary && !meetingData.notes ? `
@@ -312,21 +296,17 @@ function renderAiResult() {
 }
 
 window.toggleAction = function(i) {
-  if (aiResult && aiResult.actions) {
+  if (aiResult?.actions) {
     aiResult.actions[i].done = !aiResult.actions[i].done;
-    const check = document.getElementById(`action-${i}`)?.querySelector('.gc-check');
-    if (check) check.classList.toggle('done');
+    document.getElementById(`action-${i}`)?.querySelector('.gc-check')?.classList.toggle('done');
   }
 };
 
-// =====================
-// KAYDET
-// =====================
 window.saveMeeting = async function() {
   const data = await apiPost('/api/meetings', {
     person_id: meetingData.personId,
     company_id: meetingData.companyId,
-    user_company_id: meetingData.userCompanyId,
+    user_company_ids: meetingData.userCompanyIds,
     category: meetingData.category,
     city: meetingData.city,
     notes: meetingData.notes,
@@ -341,30 +321,22 @@ window.saveMeeting = async function() {
     showScreen('screen-home');
     window.dispatchEvent(new Event('contacts:reload'));
   } else {
-    showToast('Hata: ' + (data?.error || 'Bilinmeyen hata'));
+    showToast('Hata: ' + (data?.error || ''));
   }
 };
 
-// =====================
-// İLERİ / GERİ
-// =====================
 window.nextStep = function() {
-  if (meetingData.step === 1) {
-    renderStep2();
-  } else if (meetingData.step === 2) {
-    const city = document.getElementById('f-city')?.value;
-    meetingData.city = city;
+  if (meetingData.step === 1) renderStep2();
+  else if (meetingData.step === 2) {
+    meetingData.city = document.getElementById('f-city')?.value || '';
     renderStep3();
   } else if (meetingData.step === 3) {
-    const notes = document.getElementById('f-notes')?.value;
-    meetingData.notes = notes;
+    meetingData.notes = document.getElementById('f-notes')?.value || '';
     renderStep4();
   }
 };
 
-// =====================
 // GÖRÜŞME KARTLARI LİSTESİ
-// =====================
 export async function loadMeetingCards(personId) {
   const meetings = await apiGet(`/api/meetings?person_id=${personId}`);
   if (!meetings) return;
@@ -384,11 +356,15 @@ export async function loadMeetingCards(personId) {
     const actions = Array.isArray(m.ai_actions) ? m.ai_actions : (m.ai_actions ? JSON.parse(m.ai_actions) : []);
     const reminders = Array.isArray(m.ai_reminders) ? m.ai_reminders : (m.ai_reminders ? JSON.parse(m.ai_reminders) : []);
     const activeActions = actions.filter(a => !a.done).length;
+    const ucData = m.user_companies_data || [];
+    const roleLabel = ucData.length > 0
+      ? ucData.map(uc => uc.company_name).join(' + ')
+      : 'Şahsen';
 
     return `
-      <div class="gk-card" onclick="window.openMeetingCard('${m.id}')">
+      <div class="gk-card">
         <div class="gk-date">${formatDate(m.created_at)}</div>
-        ${m.user_company_name ? `<span class="gk-role">${m.user_company_name} adına</span>` : '<span class="gk-role passive">Şahsen</span>'}
+        <span class="gk-role">${roleLabel} adına</span>
         <div class="gk-ozet">${m.ai_summary || m.notes || '—'}</div>
         <div class="gk-meta">
           ${activeActions > 0 ? `<span class="gk-tag active">⚡ ${activeActions} aksiyon</span>` : ''}
@@ -400,8 +376,3 @@ export async function loadMeetingCards(personId) {
     `;
   }).join('');
 }
-
-window.openMeetingCard = function(id) {
-  // İleride detay ekranı açılacak
-  showToast('Görüşme kartı detayı yakında...');
-};

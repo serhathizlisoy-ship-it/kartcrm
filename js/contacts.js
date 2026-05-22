@@ -3,38 +3,26 @@ import { apiGet, apiPost, apiDelete } from './auth.js';
 import { loadMeetingCards, startMeetingFlow } from './meetings.js';
 
 export let contacts = [];
-let activeFilter = 'all';
 let searchQuery = '';
 
 export async function loadContacts() {
   const data = await apiGet('/api/contacts');
   if (!data) return;
   contacts = Array.isArray(data) ? data : [];
-  renderContacts();
+  await renderContactsByUserCompany();
   updateStats();
 }
 
-function groupByCompany(list) {
-  const groups = {};
-  list.forEach(c => {
-    const key = c.company_name || '—';
-    if (!groups[key]) groups[key] = { name: key, sector: c.sector, contacts: [] };
-    groups[key].contacts.push(c);
-  });
-  return Object.values(groups).sort((a, b) => b.contacts.length - a.contacts.length);
-}
-
-export function renderContacts() {
+// Kullanıcı şirketleri bazında gruplama
+async function renderContactsByUserCompany() {
   const container = document.getElementById('contacts-list');
   const empty = document.getElementById('empty-state');
   if (!container) return;
 
   let list = [...contacts];
-  if (activeFilter !== 'all') list = list.filter(c => c.category === activeFilter);
   if (searchQuery) list = list.filter(c =>
     (c.full_name || '').toLowerCase().includes(searchQuery) ||
-    (c.company_name || '').toLowerCase().includes(searchQuery) ||
-    (c.sector || '').toLowerCase().includes(searchQuery)
+    (c.company_name || '').toLowerCase().includes(searchQuery)
   );
 
   if (list.length === 0) {
@@ -44,9 +32,23 @@ export function renderContacts() {
   }
   if (empty) empty.style.display = 'none';
 
-  const groups = groupByCompany(list);
+  // Kullanıcı şirketlerini getir
+  const userCompanies = await apiGet('/api/usercompanies') || [];
+  
+  // Görüşmeleri getir — user_company_ids bazında grupla
+  // Önce basit: karşı tarafın firması bazında grupla (görüşme verisi olmadan)
+  // Sonraki aşamada user_company bazına geçeceğiz
+  const groups = {};
+  
+  list.forEach(c => {
+    const key = c.company_name || '—';
+    if (!groups[key]) groups[key] = { name: key, sector: c.sector, contacts: [] };
+    groups[key].contacts.push(c);
+  });
 
-  container.innerHTML = groups.map(g => `
+  const groupList = Object.values(groups).sort((a, b) => b.contacts.length - a.contacts.length);
+
+  container.innerHTML = groupList.map(g => `
     <div class="company-group">
       <div class="company-group-header" onclick="this.parentElement.classList.toggle('collapsed')">
         <div>
@@ -88,7 +90,6 @@ function updateStats() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
   const withReminders = contacts.filter(c => c.next_action_date).length;
-
   document.getElementById('stat-total').textContent = total;
   document.getElementById('stat-month').textContent = month;
   document.getElementById('stat-reminders').textContent = withReminders;
@@ -102,9 +103,10 @@ export function openDetail(id) {
   window._currentDetailId = id;
 
   const col = getAvatarColor(c.full_name);
-  document.getElementById('detail-avatar').textContent = getInitials(c.full_name);
-  document.getElementById('detail-avatar').style.background = col.bg;
-  document.getElementById('detail-avatar').style.color = col.color;
+  const av = document.getElementById('detail-avatar');
+  av.textContent = getInitials(c.full_name);
+  av.style.background = col.bg;
+  av.style.color = col.color;
   document.getElementById('detail-name').textContent = c.full_name || '';
   document.getElementById('detail-sub').textContent = [c.title, c.company_name].filter(Boolean).join(' · ');
 
@@ -126,10 +128,12 @@ export function openDetail(id) {
     </div>
   `).join('');
 
-  // Görüşme kartı ekle butonu
-  document.getElementById('btn-add-meeting')?.addEventListener('click', () => {
-    startMeetingFlow(c.id, c.full_name, c.company_id);
-  });
+  const btnMeeting = document.getElementById('btn-add-meeting');
+  if (btnMeeting) {
+    const newBtn = btnMeeting.cloneNode(true);
+    btnMeeting.parentNode.replaceChild(newBtn, btnMeeting);
+    newBtn.addEventListener('click', () => startMeetingFlow(c.id, c.full_name, c.company_id));
+  }
 
   loadMeetingCards(c.id);
   showScreen('screen-detail');
@@ -145,7 +149,7 @@ export function initContacts() {
 
   document.getElementById('search-input')?.addEventListener('input', e => {
     searchQuery = e.target.value.toLowerCase();
-    renderContacts();
+    renderContactsByUserCompany();
   });
 
   document.getElementById('btn-delete')?.addEventListener('click', async () => {

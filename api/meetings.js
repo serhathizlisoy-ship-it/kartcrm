@@ -17,17 +17,21 @@ export default async function handler(req, res) {
   if (!user) return res.status(401).json({ error: 'Giris gerekli' });
   const sql = neon(process.env.DATABASE_URL);
 
-  // GET - kişinin görüşmelerini listele
   if (req.method === 'GET') {
     const { person_id } = req.query;
     if (!person_id) return res.status(400).json({ error: 'person_id gerekli' });
     try {
       const rows = await sql`
-        SELECT m.*, 
-          uc.company_name as user_company_name,
-          uc.title as user_company_title
+        SELECT m.*,
+          m.user_company_ids,
+          (
+            SELECT json_agg(json_build_object('id', uc.id, 'company_name', uc.company_name, 'title', uc.title))
+            FROM user_companies uc
+            WHERE uc.id::text = ANY(
+              SELECT jsonb_array_elements_text(m.user_company_ids)
+            )
+          ) as user_companies_data
         FROM meetings m
-        LEFT JOIN user_companies uc ON uc.id = m.user_company_id
         WHERE m.person_id = ${person_id} AND m.user_id = ${user.userId}
         ORDER BY m.created_at DESC
       `;
@@ -37,10 +41,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST - yeni görüşme ekle (AI özeti dahil)
   if (req.method === 'POST') {
     const {
-      person_id, company_id, user_company_id,
+      person_id, company_id, user_company_ids,
       category, city, notes,
       ai_summary, ai_actions, ai_reminders, ai_followup,
       next_action, next_action_date
@@ -49,22 +52,24 @@ export default async function handler(req, res) {
     if (!person_id) return res.status(400).json({ error: 'person_id gerekli' });
 
     try {
+      const ucIds = Array.isArray(user_company_ids) ? user_company_ids : (user_company_ids ? [user_company_ids] : []);
+
       const [meeting] = await sql`
         INSERT INTO meetings (
-          user_id, person_id, company_id, user_company_id,
+          user_id, person_id, company_id, user_company_id, user_company_ids,
           category, notes, next_action, next_action_date,
           ai_summary, ai_actions, ai_reminders, ai_followup, city
         ) VALUES (
-          ${user.userId}, ${person_id}, ${company_id || null}, ${user_company_id || null},
+          ${user.userId}, ${person_id}, ${company_id || null}, 
+          ${ucIds[0] || null}, ${JSON.stringify(ucIds)},
           ${category || ''}, ${notes || ''}, ${next_action || ''}, ${next_action_date || null},
-          ${ai_summary || ''}, ${JSON.stringify(ai_actions || [])}, 
+          ${ai_summary || ''}, ${JSON.stringify(ai_actions || [])},
           ${JSON.stringify(ai_reminders || [])}, ${ai_followup || ''},
           ${city || ''}
         )
         RETURNING id
       `;
 
-      // Hatırlatmaları kaydet
       if (ai_reminders && ai_reminders.length > 0) {
         for (const r of ai_reminders) {
           if (r.date) {
@@ -76,7 +81,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // next_action_date varsa hatırlatma ekle
       if (next_action_date && next_action) {
         await sql`
           INSERT INTO reminders (user_id, person_id, meeting_id, reminder_date, message)
@@ -90,7 +94,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // DELETE
   if (req.method === 'DELETE') {
     const { id } = req.query;
     try {
