@@ -806,9 +806,8 @@ window.deleteCurrentContact = async function() {
 };
 
 window.editCurrentContact = function() {
-  alert('ID: ' + window._currentDetailId + ' contacts: ' + contacts.length);
   var c = contacts.find(function(x) { return x.id === window._currentDetailId; });
-  if (!c) { alert('Kisi bulunamadi'); return; }
+  if (!c) return;
   fillVerifyForm({
     full_name: c.full_name, company_name: c.company_name,
     title: c.title, phone: c.phone, gsm: c.gsm, fax: c.fax,
