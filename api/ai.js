@@ -4,6 +4,17 @@ export default async function handler(req, res) {
   const { notes, person_name } = req.body;
   if (!notes) return res.status(400).json({ error: 'notes gerekli' });
 
+  const now = new Date();
+  const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  const todayStr = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} ${days[now.getDay()]}`;
+  const todayISO = now.toISOString().split('T')[0];
+
+  // Yarın tarihi
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowISO = tomorrow.toISOString().split('T')[0];
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -14,24 +25,32 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 1000,
+        max_tokens: 1200,
         messages: [{
           role: 'user',
-          content: `Sen bir CRM asistanısın. Aşağıdaki görüşme notunu analiz et ve JSON formatında çıktı ver.
+          content: `Sen deneyimli bir iş asistanısın. Kullanıcı bir iş görüşmesinden sonra sesli not bıraktı.
 
-Kişi: ${person_name || 'Bilinmiyor'}
+ÖNEMLİ TARİH BİLGİSİ:
+- Bugün: ${todayStr}
+- Bugünün tarihi (ISO): ${todayISO}
+- Yarının tarihi (ISO): ${tomorrowISO}
+
+"Yarın", "bu hafta", "önümüzdeki hafta", "2-3 güne", "Pazartesi" gibi göreceli ifadeleri yukarıdaki tarihe göre gerçek ISO tarihe (YYYY-MM-DD) çevir.
+Saat bilgisi varsa (örn: "saat 10", "10:00") mutlaka kaydet.
+
+Görüşen kişi: ${person_name || 'Bilinmiyor'}
 Görüşme notu: "${notes}"
 
-SADECE bu JSON formatında yanıt ver, başka hiçbir şey yazma:
+SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
 {
-  "summary": "2-3 cümlelik özet",
+  "summary": "2-3 cümlelik net ve öz özet",
   "actions": [
-    {"text": "yapılacak iş", "person": "kişi adı veya boş", "done": false}
+    {"text": "yapılacak iş açık ve net", "person": "ilgili kişi adı veya boş string", "done": false}
   ],
   "reminders": [
-    {"text": "hatırlatma metni", "date": "YYYY-MM-DD veya null", "time": "HH:MM veya null"}
+    {"text": "hatırlatma metni", "date": "YYYY-MM-DD", "time": "HH:MM veya null"}
   ],
-  "followup": "beklenen dönüş açıklaması veya boş"
+  "followup": "beklenen dönüş açıklaması veya boş string"
 }`
         }]
       })

@@ -235,65 +235,103 @@ async function renderStep4() {
   renderAiResult();
 }
 
-function renderAiResult() {
+function renderAiResult(editMode = false) {
   const body = document.getElementById('meeting-body');
   const r = aiResult || {};
 
-  // Seçilen şirket isimlerini göster
-  const ucLabel = meetingData.userCompanyIds.length > 0
-    ? `<div class="gc-uc-label">Temsil: <strong>${meetingData.userCompanyIds.map(id => {
-        const el = document.querySelector(`.company-select-card[data-id="${id}"] .cs-name`);
-        return el?.textContent || id;
-      }).join(' + ')}</strong></div>`
+  const ucNames = meetingData.userCompanyNames || [];
+  const ucLabel = ucNames.length > 0
+    ? `<div class="gc-uc-label">Temsil: <strong>${ucNames.join(' + ')}</strong></div>`
     : '';
 
-  body.innerHTML = `
+  if (editMode) {
+    body.innerHTML = `
+      <div class="step-question">Görüşme Kartı</div>
+      <div class="ai-badge-row"><span class="ai-badge" style="background:#FEF3C7;color:#92400E;">Düzenleme Modu</span></div>
+      ${ucLabel}
+      <div class="gc-section-lbl">Görüşme Özeti</div>
+      <textarea class="meeting-textarea" id="edit-summary" style="min-height:80px;">${r.summary || ''}</textarea>
+      <div class="gc-section-lbl">Aksiyonlar (her satır ayrı aksiyon)</div>
+      <textarea class="meeting-textarea" id="edit-actions" style="min-height:80px;">${(r.actions||[]).map(a=>a.text).join('\n')}</textarea>
+      <div class="gc-section-lbl">Hatırlatmalar (tarih saat metin formatında)</div>
+      <textarea class="meeting-textarea" id="edit-reminders" style="min-height:80px;">${(r.reminders||[]).map(rem=>`${rem.date||''} ${rem.time||''} ${rem.text}`).join('\n')}</textarea>
+      <div class="gc-section-lbl">Beklenen Dönüş</div>
+      <textarea class="meeting-textarea" id="edit-followup" style="min-height:60px;">${r.followup || ''}</textarea>
+      <button class="btn-meeting-save" onclick="window.applyEdits()">Düzenlemeyi Onayla</button>
+      <button class="btn-skip" onclick="window.renderAiResultPublic(false)">Vazgeç</button>
+    `;
+    return;
+  }
+
+  body.innerHTML = \`
     <div class="step-question">Görüşme Kartı</div>
     <div class="ai-badge-row"><span class="ai-badge">AI Özeti</span></div>
-    ${ucLabel}
+    \${ucLabel}
 
-    ${r.summary ? `
+    \${r.summary ? \`
       <div class="gc-section-lbl">Görüşme Özeti</div>
-      <div class="gc-card"><div class="gc-text">${r.summary}</div></div>
-    ` : ''}
+      <div class="gc-card"><div class="gc-text">\${r.summary}</div></div>
+    \` : ''}
 
-    ${r.actions && r.actions.length > 0 ? `
+    \${r.actions && r.actions.length > 0 ? \`
       <div class="gc-section-lbl">Aksiyonlar</div>
-      ${r.actions.map((a, i) => `
-        <div class="gc-action-item" id="action-${i}">
-          <div class="gc-check ${a.done ? 'done' : ''}" onclick="window.toggleAction(${i})"></div>
+      \${r.actions.map((a, i) => \`
+        <div class="gc-action-item" id="action-\${i}">
+          <div class="gc-check \${a.done ? 'done' : ''}" onclick="window.toggleAction(\${i})"></div>
           <div>
-            <div class="gc-action-text">${a.text}</div>
-            ${a.person ? `<div class="gc-action-sub">${a.person}</div>` : ''}
+            <div class="gc-action-text">\${a.text}</div>
+            \${a.person ? \`<div class="gc-action-sub">\${a.person}</div>\` : ''}
           </div>
         </div>
-      `).join('')}
-    ` : ''}
+      \`).join('')}
+    \` : ''}
 
-    ${r.reminders && r.reminders.length > 0 ? `
+    \${r.reminders && r.reminders.length > 0 ? \`
       <div class="gc-section-lbl">Hatırlatmalar</div>
-      ${r.reminders.map(rem => `
+      \${r.reminders.map(rem => \`
         <div class="gc-reminder-item">
-          <div class="gc-rem-dot ${rem.time ? 'urgent' : ''}"></div>
-          <div class="gc-rem-date">${rem.date ? formatDate(rem.date) : 'Bugün'}${rem.time ? ' ' + rem.time : ''}</div>
-          <div class="gc-rem-text">${rem.text}</div>
+          <div class="gc-rem-dot \${rem.time ? 'urgent' : ''}"></div>
+          <div class="gc-rem-date">\${rem.date ? formatDate(rem.date) : 'Bugün'}\${rem.time ? ' ' + rem.time : ''}</div>
+          <div class="gc-rem-text">\${rem.text}</div>
         </div>
-      `).join('')}
-    ` : ''}
+      \`).join('')}
+    \` : ''}
 
-    ${r.followup ? `
+    \${r.followup ? \`
       <div class="gc-section-lbl">Beklenen Dönüş</div>
-      <div class="gc-card"><div class="gc-text">${r.followup}</div></div>
-    ` : ''}
+      <div class="gc-card"><div class="gc-text">\${r.followup}</div></div>
+    \` : ''}
 
-    ${!r.summary && !meetingData.notes ? `
+    \${!r.summary && !meetingData.notes ? \`
       <div class="gc-empty">Not girilmedi. Yine de kaydetmek istiyor musunuz?</div>
-    ` : ''}
+    \` : ''}
 
     <button class="btn-meeting-save" onclick="window.saveMeeting()">Kaydet</button>
-    <button class="btn-skip" onclick="window.saveMeeting()">Düzenleme — Kaydet</button>
-  `;
+    <button class="btn-skip" onclick="window.renderAiResultPublic(true)">Düzenle</button>
+  \`;
 }
+
+window.renderAiResultPublic = function(editMode) { renderAiResult(editMode); };
+
+window.applyEdits = function() {
+  const summary = document.getElementById('edit-summary')?.value || '';
+  const actionsText = document.getElementById('edit-actions')?.value || '';
+  const remindersText = document.getElementById('edit-reminders')?.value || '';
+  const followup = document.getElementById('edit-followup')?.value || '';
+
+  if (!aiResult) aiResult = {};
+  aiResult.summary = summary;
+  aiResult.actions = actionsText.split('\n').filter(l => l.trim()).map(l => ({ text: l.trim(), person: '', done: false }));
+  aiResult.reminders = remindersText.split('\n').filter(l => l.trim()).map(l => {
+    const parts = l.trim().split(' ');
+    const date = parts[0]?.match(/^\d{4}-\d{2}-\d{2}$/) ? parts[0] : null;
+    const time = parts[1]?.match(/^\d{2}:\d{2}$/) ? parts[1] : null;
+    const text = parts.slice(date ? (time ? 2 : 1) : 0).join(' ');
+    return { date, time, text };
+  });
+  aiResult.followup = followup;
+  renderAiResult(false);
+};
 
 window.toggleAction = function(i) {
   if (aiResult?.actions) {
