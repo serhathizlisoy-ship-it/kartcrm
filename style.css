@@ -1014,3 +1014,260 @@ html, body {
 .p-info { flex: 1; min-width: 0; }
 .p-title { font-size: 11px; color: var(--text2); font-weight: 500; margin-top: 1px; }
 .p-alert { color: #F59E0B; font-size: 14px; }
+
+/* ===== GORUSME KARTI DETAY ===== */
+.md-hero {
+  background: var(--primary);
+  padding: 48px 20px 20px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.md-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 1;
+}
+.md-back {
+  width: 34px; height: 34px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  border: none;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.md-topbar-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  flex: 1;
+}
+.md-del {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.md-date { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); }
+.md-role { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7); margin-top: 2px; }
+
+.md-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  padding-bottom: 40px;
+}
+.md-section {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.md-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.md-section-head span {
+  font-size: 11px;
+  font-weight: 800;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.md-edit-btn {
+  background: #EEF0FF;
+  color: #4B5FFA;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.md-summary {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  font-weight: 500;
+  white-space: pre-wrap;
+}
+.md-summary-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.md-btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  margin-right: 6px;
+}
+.md-btn-secondary {
+  background: #F3F4F6;
+  color: var(--text2);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.md-empty {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 8px 0;
+  font-style: italic;
+}
+
+.md-action-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+.md-action-row:last-child { border-bottom: none; }
+.md-checkbox {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-top: 1px;
+}
+.md-checkbox input {
+  position: absolute;
+  opacity: 0;
+  width: 100%; height: 100%;
+  cursor: pointer;
+  margin: 0;
+  z-index: 1;
+}
+.md-checkbox-box {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #D1D5DB;
+  border-radius: 6px;
+  background: #fff;
+  transition: all 0.15s ease;
+}
+.md-checkbox input:checked + .md-checkbox-box {
+  background: #059669;
+  border-color: #059669;
+}
+.md-checkbox input:checked + .md-checkbox-box::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+}
+.md-action-body {
+  flex: 1;
+  min-width: 0;
+}
+.md-action-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+.md-action-row.done .md-action-text {
+  text-decoration: line-through;
+  color: var(--text3);
+  font-weight: 500;
+}
+.md-action-note {
+  font-size: 11px;
+  color: var(--text2);
+  font-style: italic;
+  margin-top: 4px;
+  line-height: 1.4;
+  background: #F9FAFB;
+  border-left: 2px solid #059669;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+.md-action-del {
+  background: transparent;
+  border: none;
+  color: #9CA3AF;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  font-family: inherit;
+}
+.md-action-del:hover { color: #DC2626; }
+
+.md-rem-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+.md-rem-row:last-child { border-bottom: none; }
+.md-rem-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #F59E0B;
+  flex-shrink: 0;
+  margin-top: 7px;
+}
+.md-rem-body { flex: 1; min-width: 0; }
+.md-rem-text { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.md-rem-date { font-size: 10px; color: var(--text3); font-weight: 600; margin-top: 2px; }
+
+.md-notes {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text2);
+  white-space: pre-wrap;
+  background: #F9FAFB;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+/* Görüşme kartlarındaki "tamamlanmış" rozet */
+.gk-tag.done {
+  background: #ECFDF5;
+  color: #059669;
+}

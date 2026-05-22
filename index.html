@@ -207,6 +207,51 @@
   </div>
 </div>
 
+<!-- GORUSME KARTI DETAY -->
+<div class="screen" id="screen-meeting-detail">
+  <div class="md-hero">
+    <div class="md-topbar">
+      <button class="md-back" data-back="screen-detail">←</button>
+      <div class="md-topbar-title">Görüşme Kartı</div>
+      <button class="md-del" onclick="deleteCurrentMeeting()">Sil</button>
+    </div>
+    <div class="md-date" id="md-date"></div>
+    <div class="md-role" id="md-role"></div>
+  </div>
+  <div class="md-scroll">
+    <div class="md-section">
+      <div class="md-section-head">
+        <span>ÖZET</span>
+        <button class="md-edit-btn" onclick="toggleSummaryEdit()" id="md-summary-edit">Düzenle</button>
+      </div>
+      <div class="md-summary" id="md-summary"></div>
+      <textarea class="md-summary-input" id="md-summary-input" style="display:none;" rows="6"></textarea>
+      <div id="md-summary-save-row" style="display:none; margin-top:8px;">
+        <button class="md-btn-primary" onclick="saveSummary()">Kaydet</button>
+        <button class="md-btn-secondary" onclick="cancelSummaryEdit()">İptal</button>
+      </div>
+    </div>
+
+    <div class="md-section">
+      <div class="md-section-head">
+        <span id="md-actions-head">AKSIYONLAR</span>
+        <button class="md-edit-btn" onclick="addActionPrompt()">+ Ekle</button>
+      </div>
+      <div id="md-actions-list"></div>
+    </div>
+
+    <div class="md-section" id="md-reminders-section">
+      <div class="md-section-head"><span>HATIRLATMALAR</span></div>
+      <div id="md-reminders-list"></div>
+    </div>
+
+    <div class="md-section" id="md-notes-section" style="display:none;">
+      <div class="md-section-head"><span>GÖRÜŞME NOTU</span></div>
+      <div class="md-notes" id="md-notes"></div>
+    </div>
+  </div>
+</div>
+
 <!-- EXPORT -->
 <div class="screen" id="screen-export">
   <div class="topbar"><div class="topbar-title">Dışa Aktar</div></div>

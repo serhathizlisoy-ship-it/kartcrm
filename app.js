@@ -687,6 +687,7 @@ function nextMeetingStep() {
 async function loadMeetingCards(personId) {
   var meetings = await apiGet('/api/meetings?person_id=' + personId);
   if (!meetings) return;
+  window._currentMeetings = meetings;
   var container = document.getElementById('meeting-cards-list');
   if (!container) return;
   var header = document.getElementById('meeting-cards-header');
@@ -696,11 +697,15 @@ async function loadMeetingCards(personId) {
   meetings.forEach(function(m) {
     var actions = Array.isArray(m.ai_actions) ? m.ai_actions : (m.ai_actions ? JSON.parse(m.ai_actions) : []);
     var reminders = Array.isArray(m.ai_reminders) ? m.ai_reminders : (m.ai_reminders ? JSON.parse(m.ai_reminders) : []);
-    var activeActions = actions.filter(function(a) { return !a.done; }).length;
+    var doneActions = actions.filter(function(a) { return a.done; }).length;
+    var totalActions = actions.length;
     var ucData = m.user_companies_data || [];
     var roleLabel = ucData.length > 0 ? ucData.map(function(uc) { return uc.company_name; }).join(' + ') : 'Şahsen';
-    html += '<div class="gk-card"><div class="gk-date">' + formatDate(m.created_at) + '</div><span class="gk-role">' + roleLabel + ' adına</span><div class="gk-ozet">' + (m.ai_summary || m.notes || '—') + '</div><div class="gk-meta">';
-    if (activeActions > 0) html += '<span class="gk-tag active">⚡ ' + activeActions + ' aksiyon</span>';
+    html += '<div class="gk-card" onclick="openMeetingDetail(\'' + m.id + '\')"><div class="gk-date">' + formatDate(m.created_at) + '</div><span class="gk-role">' + roleLabel + ' adına</span><div class="gk-ozet">' + (m.ai_summary || m.notes || '—') + '</div><div class="gk-meta">';
+    if (totalActions > 0) {
+      var cls = (doneActions === totalActions) ? 'gk-tag done' : 'gk-tag active';
+      html += '<span class="' + cls + '">⚡ ' + doneActions + '/' + totalActions + ' aksiyon</span>';
+    }
     if (reminders.length > 0) html += '<span class="gk-tag active">🔔 ' + reminders.length + ' hatırlatma</span>';
     if (m.category) html += '<span class="gk-tag">' + m.category + '</span>';
     if (m.city) html += '<span class="gk-tag">' + m.city + '</span>';
@@ -711,6 +716,204 @@ async function loadMeetingCards(personId) {
 
 // ---- USER COMPANIES ----
 var userCompanies = [];
+
+// ---- GORUSME KARTI DETAY ----
+var _currentMeetingId = null;
+var _currentMeeting = null;
+
+window.openMeetingDetail = function(meetingId) {
+  var meetings = window._currentMeetings || [];
+  var m = meetings.find(function(x) { return String(x.id) === String(meetingId); });
+  if (!m) { showToast('Kart bulunamadı'); return; }
+  _currentMeetingId = meetingId;
+  _currentMeeting = JSON.parse(JSON.stringify(m));
+  // Ensure arrays
+  if (!Array.isArray(_currentMeeting.ai_actions)) {
+    _currentMeeting.ai_actions = _currentMeeting.ai_actions ? JSON.parse(_currentMeeting.ai_actions) : [];
+  }
+  if (!Array.isArray(_currentMeeting.ai_reminders)) {
+    _currentMeeting.ai_reminders = _currentMeeting.ai_reminders ? JSON.parse(_currentMeeting.ai_reminders) : [];
+  }
+  renderMeetingDetail();
+  showScreen('screen-meeting-detail');
+};
+
+function renderMeetingDetail() {
+  var m = _currentMeeting;
+  if (!m) return;
+  var ucData = m.user_companies_data || [];
+  var roleLabel = ucData.length > 0 ? ucData.map(function(uc) { return uc.company_name; }).join(' + ') : 'Şahsen';
+  document.getElementById('md-date').textContent = formatDate(m.created_at);
+  document.getElementById('md-role').textContent = roleLabel + ' adına' + (m.city ? ' · ' + m.city : '') + (m.category ? ' · ' + m.category : '');
+  document.getElementById('md-summary').textContent = m.ai_summary || '—';
+  renderMeetingActions();
+  renderMeetingReminders();
+  // Görüşme notu
+  var notesSection = document.getElementById('md-notes-section');
+  var notesEl = document.getElementById('md-notes');
+  if (m.notes && m.notes.trim()) {
+    if (notesSection) notesSection.style.display = 'block';
+    if (notesEl) notesEl.textContent = m.notes;
+  } else {
+    if (notesSection) notesSection.style.display = 'none';
+  }
+}
+
+function renderMeetingActions() {
+  var actions = _currentMeeting.ai_actions || [];
+  var head = document.getElementById('md-actions-head');
+  var done = actions.filter(function(a) { return a.done; }).length;
+  if (head) head.textContent = 'AKSIYONLAR (' + done + '/' + actions.length + ')';
+  var list = document.getElementById('md-actions-list');
+  if (!list) return;
+  if (actions.length === 0) {
+    list.innerHTML = '<div class="md-empty">Aksiyon yok</div>';
+    return;
+  }
+  list.innerHTML = actions.map(function(a, idx) {
+    var checked = a.done ? 'checked' : '';
+    var doneCls = a.done ? ' done' : '';
+    var noteHtml = '';
+    if (a.done && a.note) {
+      noteHtml = '<div class="md-action-note">"' + escapeHtml(a.note) + '"' + (a.done_at ? ' — ' + formatDate(a.done_at) : '') + '</div>';
+    }
+    return '<div class="md-action-row' + doneCls + '" data-idx="' + idx + '">' +
+      '<label class="md-checkbox">' +
+        '<input type="checkbox" ' + checked + ' onchange="toggleAction(' + idx + ', this.checked)" />' +
+        '<span class="md-checkbox-box"></span>' +
+      '</label>' +
+      '<div class="md-action-body">' +
+        '<div class="md-action-text">' + escapeHtml(a.text || '') + '</div>' +
+        noteHtml +
+      '</div>' +
+      '<button class="md-action-del" onclick="deleteAction(' + idx + ')" title="Sil">×</button>' +
+    '</div>';
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function renderMeetingReminders() {
+  var reminders = _currentMeeting.ai_reminders || [];
+  var section = document.getElementById('md-reminders-section');
+  var list = document.getElementById('md-reminders-list');
+  if (reminders.length === 0) {
+    if (section) section.style.display = 'none';
+    return;
+  }
+  if (section) section.style.display = 'block';
+  list.innerHTML = reminders.map(function(r, idx) {
+    var dt = r.date ? formatDate(r.date) : '';
+    var time = r.time ? ' ' + r.time : '';
+    return '<div class="md-rem-row">' +
+      '<div class="md-rem-dot"></div>' +
+      '<div class="md-rem-body">' +
+        '<div class="md-rem-text">' + escapeHtml(r.text || '') + '</div>' +
+        (dt ? '<div class="md-rem-date">' + dt + time + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+window.toggleAction = function(idx, checked) {
+  var a = _currentMeeting.ai_actions[idx];
+  if (!a) return;
+  if (checked) {
+    // Açıklama iste
+    var note = prompt('Ne yaptın? (opsiyonel — boş bırakabilirsin)', a.note || '');
+    if (note === null) {
+      // İptal - checkbox geri
+      renderMeetingActions();
+      return;
+    }
+    a.done = true;
+    a.note = note || '';
+    a.done_at = new Date().toISOString();
+  } else {
+    a.done = false;
+    a.note = '';
+    a.done_at = null;
+  }
+  saveMeetingActions();
+};
+
+window.deleteAction = function(idx) {
+  if (!confirm('Bu aksiyonu silmek istiyor musunuz?')) return;
+  _currentMeeting.ai_actions.splice(idx, 1);
+  saveMeetingActions();
+};
+
+window.addActionPrompt = function() {
+  var text = prompt('Yeni aksiyon:');
+  if (!text || !text.trim()) return;
+  _currentMeeting.ai_actions.push({ text: text.trim(), done: false });
+  saveMeetingActions();
+};
+
+async function saveMeetingActions() {
+  renderMeetingActions();
+  try {
+    await apiPut('/api/meetings?id=' + _currentMeetingId, { ai_actions: _currentMeeting.ai_actions });
+    // Cache güncelle
+    var cached = (window._currentMeetings || []).find(function(x) { return String(x.id) === String(_currentMeetingId); });
+    if (cached) cached.ai_actions = _currentMeeting.ai_actions;
+  } catch (e) {
+    showToast('Kaydetme hatası');
+  }
+}
+
+window.toggleSummaryEdit = function() {
+  var view = document.getElementById('md-summary');
+  var input = document.getElementById('md-summary-input');
+  var saveRow = document.getElementById('md-summary-save-row');
+  var btn = document.getElementById('md-summary-edit');
+  input.value = _currentMeeting.ai_summary || '';
+  view.style.display = 'none';
+  input.style.display = 'block';
+  saveRow.style.display = 'block';
+  btn.style.display = 'none';
+  input.focus();
+};
+
+window.cancelSummaryEdit = function() {
+  document.getElementById('md-summary').style.display = 'block';
+  document.getElementById('md-summary-input').style.display = 'none';
+  document.getElementById('md-summary-save-row').style.display = 'none';
+  document.getElementById('md-summary-edit').style.display = 'inline-block';
+};
+
+window.saveSummary = async function() {
+  var newText = document.getElementById('md-summary-input').value.trim();
+  _currentMeeting.ai_summary = newText;
+  try {
+    await apiPut('/api/meetings?id=' + _currentMeetingId, { ai_summary: newText });
+    var cached = (window._currentMeetings || []).find(function(x) { return String(x.id) === String(_currentMeetingId); });
+    if (cached) cached.ai_summary = newText;
+    document.getElementById('md-summary').textContent = newText || '—';
+    cancelSummaryEdit();
+    showToast('✓ Kaydedildi');
+  } catch (e) {
+    showToast('Kaydetme hatası');
+  }
+};
+
+window.deleteCurrentMeeting = async function() {
+  if (!_currentMeetingId) return;
+  if (!confirm('Bu görüşme kartını silmek istiyor musunuz?')) return;
+  try {
+    await apiDelete('/api/meetings?id=' + _currentMeetingId);
+    showToast('✓ Kart silindi');
+    var personId = _currentMeeting.person_id;
+    showScreen('screen-detail');
+    if (personId) loadMeetingCards(personId);
+  } catch (e) {
+    showToast('Silme hatası');
+  }
+};
 
 async function loadUserCompanies() {
   var data = await apiGet('/api/usercompanies');
