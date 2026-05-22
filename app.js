@@ -1033,15 +1033,105 @@ window.markReminderDone = async function(id, ev) {
   }
 };
 
-// ---- NOTIFICATIONS ----
+// ---- NOTIFICATIONS / PUSH ----
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var rawData = window.atob(base64);
+  var outputArray = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    var reg = await navigator.serviceWorker.register('/service-worker.js');
+    return reg;
+  } catch (e) {
+    console.error('SW kayit hatasi:', e);
+    return null;
+  }
+}
+
 async function requestNotificationPermission() {
-  if (!('Notification' in window)) { showToast('Tarayıcı bildirimleri desteklemiyor'); return; }
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showToast('Tarayıcı push bildirimleri desteklemiyor');
+    return;
+  }
+
+  // iOS PWA kontrol
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (isIOS && !isStandalone) {
+    showToast('iPhone\'da bildirim için: Paylaş → Ana Ekrana Ekle, sonra ana ekrandan açıp tekrar dene');
+    return;
+  }
+
   var permission = await Notification.requestPermission();
-  if (permission === 'granted') {
-    document.getElementById('notif-status').textContent = 'Aktif ✓';
-    showToast('✓ Bildirimler aktif');
-  } else {
+  if (permission !== 'granted') {
     document.getElementById('notif-status').textContent = 'Reddedildi';
+    showToast('Bildirim izni reddedildi');
+    return;
+  }
+
+  try {
+    var reg = await registerServiceWorker();
+    if (!reg) { showToast('Service worker yüklenemedi'); return; }
+    // SW aktif olana kadar bekle
+    if (reg.installing) {
+      await new Promise(function(resolve) {
+        reg.installing.addEventListener('statechange', function() {
+          if (this.state === 'activated') resolve();
+        });
+      });
+    }
+    await navigator.serviceWorker.ready;
+
+    // VAPID public key'i backend'den al
+    var keyResp = await apiGet('/api/push-subscribe');
+    if (!keyResp || !keyResp.publicKey) { showToast('VAPID key alınamadı'); return; }
+
+    var sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyResp.publicKey)
+      });
+    }
+
+    var saveResp = await apiPost('/api/push-subscribe', { subscription: sub });
+    if (saveResp && saveResp.success) {
+      document.getElementById('notif-status').textContent = 'Aktif ✓';
+      showToast('✓ Bildirimler aktif');
+    } else {
+      showToast('Abonelik kaydı başarısız');
+    }
+  } catch (e) {
+    console.error('Push abonelik hatasi:', e);
+    showToast('Hata: ' + (e.message || e));
+  }
+}
+
+async function updateNotifStatus() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  var statusEl = document.getElementById('notif-status');
+  if (!statusEl) return;
+  if (Notification.permission === 'denied') {
+    statusEl.textContent = 'Reddedildi';
+    return;
+  }
+  if (Notification.permission !== 'granted') {
+    statusEl.textContent = 'Kapalı';
+    return;
+  }
+  try {
+    var reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) { statusEl.textContent = 'Kapalı'; return; }
+    var sub = await reg.pushManager.getSubscription();
+    statusEl.textContent = sub ? 'Aktif ✓' : 'Kapalı';
+  } catch (e) {
+    statusEl.textContent = 'Kapalı';
   }
 }
 
@@ -1061,6 +1151,11 @@ function initApp() {
   loadContacts();
   loadUserCompanies();
   loadReminders();
+  updateNotifStatus();
+  // Service worker'i pasif olarak kaydet (push gelirse calissin)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').catch(function() {});
+  }
 }
 
 // ---- EVENT LISTENERS ----
