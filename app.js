@@ -506,6 +506,7 @@ function initApp() {
   updateNotifStatus();
   showScreen('screen-home');
   loadContacts();
+  loadUserCompanies();
 }
 
 // =====================
@@ -645,6 +646,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Notification
   document.getElementById('btn-notif-toggle').addEventListener('click', requestNotificationPermission);
+  document.getElementById('btn-add-company').addEventListener('click', () => {
+    document.getElementById('add-company-form').style.display = 'block';
+  });
+  document.getElementById('btn-save-company').addEventListener('click', saveUserCompany);
+  document.getElementById('btn-cancel-company').addEventListener('click', () => {
+    document.getElementById('add-company-form').style.display = 'none';
+  });
 
   // Back buttons
   document.querySelectorAll('[data-back]').forEach(btn => {
@@ -656,3 +664,75 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => showScreen(btn.dataset.screen));
   });
 });
+
+// =====================
+// KULLANICI ŞİRKETLERİ
+// =====================
+let userCompanies = [];
+
+async function loadUserCompanies() {
+  const data = await apiGet('/api/usercompanies');
+  if (!data) return;
+  userCompanies = data;
+  renderUserCompanies();
+  fillUserCompanySelect();
+}
+
+function renderUserCompanies() {
+  const list = document.getElementById('user-companies-list');
+  if (!list) return;
+  if (userCompanies.length === 0) {
+    list.innerHTML = '<div style="font-size:12px; color:var(--text3); padding:8px 0; margin-bottom:8px;">Henüz şirket eklenmedi</div>';
+    return;
+  }
+  list.innerHTML = userCompanies.map(c => `
+    <div class="p-card" style="margin-bottom:8px;">
+      <div class="p-card-top">
+        <div class="avatar" style="background:#EEF0FF; color:#4B5FFA; border-radius:10px;">🏢</div>
+        <div>
+          <div class="p-name">${c.company_name}</div>
+          <div class="p-co">${c.title || ''} ${c.is_default ? '⭐ Varsayılan' : ''}</div>
+        </div>
+        <button onclick="deleteUserCompany('${c.id}')" style="margin-left:auto; background:var(--red-bg); color:var(--red-text); border:none; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer;">Sil</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function fillUserCompanySelect() {
+  const sel = document.getElementById('f-user-company');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Şahsen / Seçiniz</option>';
+  userCompanies.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = `${c.company_name}${c.title ? ' - ' + c.title : ''}`;
+    if (c.is_default) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+async function deleteUserCompany(id) {
+  if (!confirm('Bu şirketi silmek istiyor musunuz?')) return;
+  await apiDelete(`/api/usercompanies?id=${id}`);
+  await loadUserCompanies();
+  showToast('Şirket silindi');
+}
+
+async function saveUserCompany() {
+  const name = document.getElementById('uc-name').value.trim();
+  const title = document.getElementById('uc-title').value.trim();
+  const isDefault = document.getElementById('uc-default').checked;
+  if (!name) { showToast('Şirket adı gerekli'); return; }
+  const data = await apiPost('/api/usercompanies', { company_name: name, title, is_default: isDefault });
+  if (data && !data.error) {
+    document.getElementById('add-company-form').style.display = 'none';
+    document.getElementById('uc-name').value = '';
+    document.getElementById('uc-title').value = '';
+    document.getElementById('uc-default').checked = false;
+    await loadUserCompanies();
+    showToast('✓ Şirket eklendi');
+  } else {
+    showToast('Hata: ' + (data?.error || ''));
+  }
+}

@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     const { company_name, title, is_default } = req.body;
-    if (!company_name) return res.status(400).json({ error: 'Şirket adı gerekli' });
+    if (!company_name) return res.status(400).json({ error: 'Sirket adi gerekli' });
     try {
       if (is_default) {
         await sql`UPDATE user_companies SET is_default = false WHERE user_id = ${user.userId}`;

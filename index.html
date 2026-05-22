@@ -223,6 +223,9 @@
     <div class="topbar-title">Not Ekle</div>
   </div>
   <div class="content">
+    <div class="sec-lbl">Bu görüşmede sen kimdin?</div>
+    <select class="form-input" id="f-user-company" style="margin-bottom:14px;"><option value="">Şahsen / Seçiniz</option></select>
+    <div class="divider"></div>
     <div class="sec-lbl">Nerede tanıştınız?</div>
     <div class="chips-row" id="note-chips">
       <span class="chip" data-cat="İş görüşmesi">İş görüşmesi</span>
@@ -331,6 +334,22 @@
         </div>
         <div class="p-arrow" id="notif-arrow">›</div>
       </div>
+    </div>
+    <div class="sec-lbl" style="margin-top:16px;">Şirketlerim</div>
+    <div id="user-companies-list"></div>
+    <div class="p-card" id="btn-add-company" style="cursor:pointer; border:2px dashed var(--border2);">
+      <div class="p-card-top">
+        <div class="add-opt-icon" style="background:#EEF0FF; width:38px; height:38px; font-size:18px;">🏢</div>
+        <div><div class="p-name">Şirket Ekle</div><div class="p-co">Hangi sıfatla görüşüyorsun?</div></div>
+        <div class="p-arrow">+</div>
+      </div>
+    </div>
+    <div id="add-company-form" style="display:none; margin-top:10px;">
+      <div class="form-group"><label class="form-lbl">Şirket Adı</label><input class="form-input" type="text" id="uc-name" placeholder="Şirket adı"></div>
+      <div class="form-group"><label class="form-lbl">Unvanınız</label><input class="form-input" type="text" id="uc-title" placeholder="Genel Müdür, Ortak..."></div>
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--text2); margin-bottom:12px;"><input type="checkbox" id="uc-default"> Varsayılan şirket</label>
+      <button class="btn-primary" id="btn-save-company">Kaydet</button>
+      <button class="btn-sec" id="btn-cancel-company">İptal</button>
     </div>
     <button class="btn-danger" id="btn-logout2" style="margin-top:24px;">Çıkış Yap</button>
   </div>
