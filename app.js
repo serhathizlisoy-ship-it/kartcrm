@@ -478,7 +478,7 @@ function toggleMic() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
   recognition.lang = 'tr-TR';
-  recognition.continuous = true;
+  recognition.continuous = false;
   recognition.interimResults = true;
 
   var textarea = document.getElementById('f-notes');
