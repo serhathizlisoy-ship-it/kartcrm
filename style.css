@@ -571,12 +571,16 @@ html, body {
   width: 160px; height: 160px;
   background: rgba(255,255,255,0.07);
   border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
 }
 .detail-topbar {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 18px;
+  position: relative;
+  z-index: 1;
 }
 .detail-back, .detail-edit {
   width: 34px; height: 34px;
