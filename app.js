@@ -281,6 +281,10 @@ function openDetail(id) {
     newBtn.addEventListener('click', function() { startMeetingFlow(c.id, c.full_name, c.company_id); });
   }
 
+  // btn-edit'e contact id yaz
+  var btnEditEl = document.getElementById('btn-edit');
+  if (btnEditEl) btnEditEl.setAttribute('data-contact-id', c.id);
+
   loadMeetingCards(c.id);
   showScreen('screen-detail');
 }
@@ -801,8 +805,9 @@ window.deleteCurrentContact = async function() {
   showScreen('screen-home');
 };
 
-window.editCurrentContact = function() {
-  var c = contacts.find(function(x) { return x.id === window._currentDetailId; });
+window.editCurrentContact = function(btn) {
+  var contactId = (btn && btn.getAttribute('data-contact-id')) || window._currentDetailId;
+  var c = contacts.find(function(x) { return x.id === contactId; });
   if (!c) return;
   fillVerifyForm({
     full_name: c.full_name, company_name: c.company_name,
