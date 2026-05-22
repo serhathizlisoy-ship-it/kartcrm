@@ -1,223 +1,879 @@
-import { showScreen, showToast, getInitials } from './js/ui.js';
-import { authToken, currentUser, initAuth, switchTab, logout, apiGet, apiPost } from './js/auth.js';
-import { loadContacts, initContacts, contacts, openDetail } from './js/contacts.js';
-import { startCamera, stopCamera, initCamera, fillVerifyForm } from './js/camera.js';
-import { startMeetingFlow } from './js/meetings.js';
-import { exportExcel, exportPDF } from './js/export.js';
+// =====================
+// KARTCRM v3 - app.js (tek dosya)
+// =====================
 
-let userCompanies = [];
-
-window.switchTab = switchTab;
+// ---- UI ----
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  var s = document.getElementById(id);
+  if (s) { s.classList.add('active'); s.scrollTop = 0; }
+}
 window.showScreen = showScreen;
 
-async function initApp() {
-  const { authToken: token, currentUser: user } = await import('./js/auth.js');
-  if (!token || !user) { showScreen('screen-auth'); return; }
-
-  const name = user.full_name || user.email.split('@')[0];
-  document.getElementById('greeting-text').textContent = `Merhaba, ${name} 👋`;
-  document.getElementById('profile-name').textContent = user.full_name || '-';
-  document.getElementById('profile-email').textContent = user.email || '-';
-  document.getElementById('profile-avatar').textContent = getInitials(user.full_name || user.email);
-
-  showScreen('screen-home');
-  loadContacts();
-  loadUserCompanies();
-  loadReminders();
-  updateNotifStatus();
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2800);
 }
 
-// =====================
-// REMINDERS
-// =====================
-async function loadReminders() {
-  const data = await apiGet('/api/reminders');
+function getInitials(name) {
+  if (!name) return '?';
+  return name.trim().split(/\s+/).map(function(n) { return n[0]; }).join('').toUpperCase().slice(0, 2);
+}
+
+function getAvatarColor(name) {
+  var palettes = [
+    { bg: '#EEF0FF', color: '#4B5FFA' },
+    { bg: '#F0FDF4', color: '#16A34A' },
+    { bg: '#FFFBEB', color: '#D97706' },
+    { bg: '#FEF2F2', color: '#DC2626' },
+    { bg: '#F5F3FF', color: '#7C3AED' },
+    { bg: '#EFF6FF', color: '#1D4ED8' },
+  ];
+  var idx = (name || 'A').charCodeAt(0) % palettes.length;
+  return palettes[idx];
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ---- AUTH ----
+var authToken = localStorage.getItem('kartcrm_token');
+var currentUser = JSON.parse(localStorage.getItem('kartcrm_user') || 'null');
+
+function setAuth(token, user) {
+  authToken = token;
+  currentUser = user;
+  localStorage.setItem('kartcrm_token', token);
+  localStorage.setItem('kartcrm_user', JSON.stringify(user));
+}
+
+function clearAuth() {
+  authToken = null;
+  currentUser = null;
+  localStorage.removeItem('kartcrm_token');
+  localStorage.removeItem('kartcrm_user');
+}
+
+function logout() {
+  clearAuth();
+  contacts = [];
+  showScreen('screen-auth');
+}
+
+async function apiGet(path) {
+  var res = await fetch(path, { headers: { 'Authorization': 'Bearer ' + authToken } });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
+async function apiPost(path, body) {
+  var res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+    body: JSON.stringify(body)
+  });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
+async function apiDelete(path) {
+  var res = await fetch(path, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + authToken } });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
+window.switchTab = function(tab) {
+  document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+};
+
+async function login() {
+  var email = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  var errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Tüm alanları doldurun'; return; }
+  try {
+    var res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password })
+    });
+    var data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error; return; }
+    setAuth(data.token, data.user);
+    initApp();
+  } catch(e) { errEl.textContent = 'Bağlantı hatası'; }
+}
+
+async function register() {
+  var name = document.getElementById('reg-name').value.trim();
+  var email = document.getElementById('reg-email').value.trim();
+  var password = document.getElementById('reg-password').value;
+  var errEl = document.getElementById('reg-error');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Tüm alanları doldurun'; return; }
+  if (password.length < 6) { errEl.textContent = 'Şifre en az 6 karakter olmalı'; return; }
+  try {
+    var res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password, full_name: name })
+    });
+    var data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error; return; }
+    setAuth(data.token, data.user);
+    initApp();
+  } catch(e) { errEl.textContent = 'Bağlantı hatası'; }
+}
+
+// ---- CONTACTS ----
+var contacts = [];
+var searchQuery = '';
+
+async function loadContacts() {
+  var data = await apiGet('/api/contacts');
   if (!data) return;
-  const bar = document.getElementById('reminders-bar');
-  const list = document.getElementById('reminders-list');
-  document.getElementById('stat-reminders').textContent = data.length;
-  if (data.length === 0) { bar.style.display = 'none'; return; }
-  bar.style.display = 'block';
-  list.innerHTML = data.map(r => `
-    <div class="reminder-item">
-      <div class="rem-dot"></div>
-      <div>
-        <strong>${r.full_name || ''}</strong>
-        <div style="font-size:11px; color:var(--text2);">${r.message}</div>
-      </div>
-    </div>
-  `).join('');
+  contacts = Array.isArray(data) ? data : [];
+  renderContacts();
+  updateStats();
 }
 
-// =====================
-// USER COMPANIES
-// =====================
+function renderContacts() {
+  var container = document.getElementById('contacts-list');
+  var empty = document.getElementById('empty-state');
+  if (!container) return;
+
+  var list = contacts.slice();
+  if (searchQuery) {
+    list = list.filter(function(c) {
+      return (c.full_name || '').toLowerCase().includes(searchQuery) ||
+             (c.company_name || '').toLowerCase().includes(searchQuery);
+    });
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = '';
+    if (empty) empty.style.display = 'flex';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  var groups = {};
+  list.forEach(function(c) {
+    var key = c.company_name || '—';
+    if (!groups[key]) groups[key] = { name: key, sector: c.sector, contacts: [] };
+    groups[key].contacts.push(c);
+  });
+
+  var groupList = Object.values(groups).sort(function(a, b) { return b.contacts.length - a.contacts.length; });
+
+  container.innerHTML = groupList.map(function(g) {
+    return '<div class="company-group">' +
+      '<div class="company-group-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">' +
+        '<div><div class="company-group-name">' + g.name + '</div>' +
+        (g.sector ? '<div class="company-group-sector">' + g.sector + '</div>' : '') + '</div>' +
+        '<div class="company-group-count">' + g.contacts.length + '</div>' +
+      '</div>' +
+      '<div class="company-group-list">' +
+        g.contacts.map(function(c) {
+          var col = getAvatarColor(c.full_name);
+          return '<div class="p-card" data-id="' + c.id + '">' +
+            '<div class="p-card-inner">' +
+              '<div class="avatar" style="background:' + col.bg + ';color:' + col.color + ';">' + getInitials(c.full_name) + '</div>' +
+              '<div class="p-info"><div class="p-name">' + c.full_name + '</div>' +
+              (c.title ? '<div class="p-title">' + c.title + '</div>' : '') + '</div>' +
+              (c.next_action_date ? '<div class="p-alert">⚡</div>' : '') +
+            '</div></div>';
+        }).join('') +
+      '</div></div>';
+  }).join('');
+
+  container.querySelectorAll('.p-card').forEach(function(card) {
+    card.addEventListener('click', function() { openDetail(card.dataset.id); });
+  });
+}
+
+function updateStats() {
+  var total = contacts.length;
+  var now = new Date();
+  var month = contacts.filter(function(c) {
+    var d = new Date(c.created_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  var withReminders = contacts.filter(function(c) { return c.next_action_date; }).length;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-month').textContent = month;
+  document.getElementById('stat-reminders').textContent = withReminders;
+  var sumTotal = document.getElementById('sum-total');
+  var sumBusiness = document.getElementById('sum-business');
+  if (sumTotal) sumTotal.textContent = total;
+  if (sumBusiness) sumBusiness.textContent = contacts.filter(function(c) { return c.category === 'İş görüşmesi'; }).length;
+}
+
+function openDetail(id) {
+  var c = contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  window._currentDetailId = id;
+
+  var col = getAvatarColor(c.full_name);
+  var av = document.getElementById('detail-avatar');
+  av.textContent = getInitials(c.full_name);
+  av.style.background = col.bg;
+  av.style.color = col.color;
+  document.getElementById('detail-name').textContent = c.full_name || '';
+  document.getElementById('detail-sub').textContent = [c.title, c.company_name].filter(Boolean).join(' · ');
+
+  var rows = [
+    { lbl: 'Tel',   val: c.phone,   href: c.phone ? 'tel:' + c.phone : null },
+    { lbl: 'GSM',   val: c.gsm,     href: c.gsm ? 'tel:' + c.gsm : null },
+    { lbl: 'Fax',   val: c.fax },
+    { lbl: 'Mail',  val: c.email,   href: c.email ? 'mailto:' + c.email : null },
+    { lbl: 'Web',   val: c.web,     href: c.web ? (c.web.startsWith('http') ? c.web : 'https://' + c.web) : null },
+    { lbl: 'Adres', val: c.address },
+    { lbl: 'Sektör',val: c.sector },
+  ].filter(function(r) { return r.val; });
+
+  document.getElementById('detail-info').innerHTML = rows.map(function(r) {
+    return '<div class="info-row"><span class="info-lbl">' + r.lbl + '</span>' +
+      (r.href ? '<a class="info-val lnk" href="' + r.href + '">' + r.val + '</a>' : '<span class="info-val">' + r.val + '</span>') +
+      '</div>';
+  }).join('');
+
+  var btnMeeting = document.getElementById('btn-add-meeting');
+  if (btnMeeting) {
+    var newBtn = btnMeeting.cloneNode(true);
+    btnMeeting.parentNode.replaceChild(newBtn, btnMeeting);
+    newBtn.addEventListener('click', function() { startMeetingFlow(c.id, c.full_name, c.company_id); });
+  }
+
+  loadMeetingCards(c.id);
+  showScreen('screen-detail');
+}
+
+// ---- CAMERA ----
+var cameraStream = null;
+
+function stopCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(function(t) { t.stop(); }); cameraStream = null; }
+  var v = document.getElementById('camera-video');
+  if (v) v.srcObject = null;
+}
+
+async function startCamera() {
+  stopCamera();
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+    var video = document.getElementById('camera-video');
+    video.srcObject = cameraStream;
+    await video.play();
+  } catch(e) { showToast('Kamera açılamadı'); }
+}
+
+async function sendToOCR(dataUrl) {
+  var resized = await resizeImage(dataUrl);
+  var base64 = resized.split(',')[1];
+  document.getElementById('ocr-loading').style.display = 'block';
+  try {
+    var response = await fetch('https://kartcrm.vercel.app/api/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64 })
+    });
+    if (!response.ok) throw new Error('Sunucu hatası: ' + response.status);
+    var parsed = await response.json();
+    document.getElementById('ocr-loading').style.display = 'none';
+    return parsed;
+  } catch(e) {
+    document.getElementById('ocr-loading').style.display = 'none';
+    showToast('OCR hatası: ' + e.message);
+    return {};
+  }
+}
+
+function resizeImage(dataUrl) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var ratio = Math.min(1000 / img.width, 1);
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = dataUrl;
+  });
+}
+
+function fillVerifyForm(data) {
+  document.getElementById('f-name').value    = data.name || data.full_name || '';
+  document.getElementById('f-company').value = data.company || data.company_name || '';
+  document.getElementById('f-title').value   = data.title   || '';
+  document.getElementById('f-phone').value   = data.phone   || '';
+  document.getElementById('f-gsm').value     = data.gsm     || '';
+  document.getElementById('f-fax').value     = data.fax     || '';
+  document.getElementById('f-email').value   = data.email   || '';
+  document.getElementById('f-web').value     = data.web     || '';
+  document.getElementById('f-address').value = data.address || '';
+  document.getElementById('f-sector').value  = data.sector  || '';
+  document.getElementById('ocr-banner').textContent = '✦ AI okudu — bilgileri kontrol edip onaylayın';
+}
+
+function readForm() {
+  return {
+    full_name:    document.getElementById('f-name').value.trim(),
+    company_name: document.getElementById('f-company').value.trim(),
+    title:        document.getElementById('f-title').value.trim(),
+    phone:        document.getElementById('f-phone').value.trim(),
+    gsm:          document.getElementById('f-gsm').value.trim(),
+    fax:          document.getElementById('f-fax').value.trim(),
+    email:        document.getElementById('f-email').value.trim(),
+    web:          document.getElementById('f-web').value.trim(),
+    address:      document.getElementById('f-address').value.trim(),
+    sector:       document.getElementById('f-sector').value.trim(),
+  };
+}
+
+// ---- MEETINGS ----
+var meetingData = { personId: null, personName: null, companyId: null, userCompanyIds: [], userCompanyNames: [], category: null, city: null, notes: '', step: 1 };
+var aiResult = null;
+var recognition = null;
+var isRecording = false;
+
+function startMeetingFlow(personId, personName, companyId) {
+  meetingData = { personId: personId, personName: personName, companyId: companyId, userCompanyIds: [], userCompanyNames: [], category: null, city: null, notes: '', step: 1 };
+  aiResult = null;
+  renderStep1();
+  showScreen('screen-meeting');
+}
+
+function renderStepBar(current) {
+  var bar = document.getElementById('meeting-step-bar');
+  if (!bar) return;
+  bar.innerHTML = [1,2,3,4].map(function(i) {
+    return '<div class="step-dot ' + (i < current ? 'done' : i === current ? 'active' : '') + '"></div>';
+  }).join('');
+}
+
+function renderPersonTag() {
+  var el = document.getElementById('meeting-person-tag');
+  if (!el) return;
+  var initials = (meetingData.personName || '?').split(' ').map(function(n) { return n[0]; }).join('').slice(0,2);
+  el.innerHTML = '<div class="person-tag-inner"><div class="meeting-avatar">' + initials + '</div><div><div class="meeting-person-name">' + (meetingData.personName || '') + '</div></div></div>';
+}
+
+async function renderStep1() {
+  meetingData.step = 1;
+  renderStepBar(1);
+  renderPersonTag();
+  var body = document.getElementById('meeting-body');
+  var companies = await apiGet('/api/usercompanies');
+
+  if (!companies || companies.length === 0) {
+    body.innerHTML = '<div class="step-question">Kimi temsil ediyordun?</div><div class="step-sub">Bir veya birden fazla seçebilirsin</div><div class="warning-box"><div class="warning-text">Kayıtlı Şirket Kimliğiniz Bulunamadı.<br>Lütfen sisteme şirket girişi yapınız.</div><button class="warning-btn" onclick="showScreen(\'screen-profile\')">Şirket Ekle</button></div><button class="btn-skip" onclick="nextMeetingStep()">Şimdi Değil, Geç</button>';
+    return;
+  }
+
+  var defaultCo = companies.find(function(c) { return c.is_default; });
+  if (defaultCo) {
+    meetingData.userCompanyIds = [defaultCo.id];
+    meetingData.userCompanyNames = [defaultCo.company_name];
+  }
+
+  var html = '<div class="step-question">Kimi temsil ediyordun?</div><div class="step-sub">Bir veya birden fazla seçebilirsin</div><div id="company-list">';
+  companies.forEach(function(c) {
+    var sel = c.is_default ? 'selected' : '';
+    var act = c.is_default ? 'active' : '';
+    html += '<div class="company-select-card ' + sel + '" data-id="' + c.id + '" data-name="' + c.company_name + '"><div><div class="cs-name">' + c.company_name + '</div><div class="cs-title">' + (c.title || '') + '</div></div><div class="cs-check ' + act + '">✓</div></div>';
+  });
+  html += '<div class="company-select-card" data-id="personal" data-name="Şahsen"><div><div class="cs-name">Şahsen</div><div class="cs-title">Kişisel</div></div><div class="cs-check">✓</div></div>';
+  html += '</div><button class="btn-meeting-next" id="btn-step1-next">İleri →</button>';
+  body.innerHTML = html;
+
+  document.querySelectorAll('.company-select-card').forEach(function(el) {
+    el.addEventListener('click', function() { toggleUserCompany(el); });
+  });
+  document.getElementById('btn-step1-next').addEventListener('click', nextMeetingStep);
+}
+
+function toggleUserCompany(el) {
+  var id = el.dataset.id;
+  var name = el.dataset.name;
+  var isSelected = el.classList.contains('selected');
+  if (isSelected) {
+    el.classList.remove('selected');
+    el.querySelector('.cs-check').classList.remove('active');
+    meetingData.userCompanyIds = meetingData.userCompanyIds.filter(function(x) { return x !== id; });
+    meetingData.userCompanyNames = meetingData.userCompanyNames.filter(function(x) { return x !== name; });
+  } else {
+    el.classList.add('selected');
+    el.querySelector('.cs-check').classList.add('active');
+    if (id !== 'personal') {
+      meetingData.userCompanyIds.push(id);
+      meetingData.userCompanyNames.push(name);
+    }
+  }
+}
+
+function renderStep2() {
+  meetingData.step = 2;
+  renderStepBar(2);
+  var cats = ['İş görüşmesi', 'Toplantı', 'Yemek', 'Fuar', 'Dernek', 'Karşılaşma', 'Diğer'];
+  var html = '<div class="step-question">Nerede tanıştınız?</div><div class="step-sub">Görüşme ortamını seç</div><div class="cat-grid">';
+  cats.forEach(function(c) {
+    var sel = meetingData.category === c ? 'selected' : '';
+    html += '<div class="cat-card ' + sel + '" data-cat="' + c + '"><div class="cat-label">' + c + '</div></div>';
+  });
+  html += '</div><input class="form-input" type="text" id="f-city" placeholder="Şehir (isteğe bağlı)" value="' + (meetingData.city || '') + '" style="margin:12px 0;">';
+  html += '<button class="btn-meeting-next" id="btn-step2-next">İleri →</button>';
+  html += '<button class="btn-skip" id="btn-step2-skip">Geç</button>';
+  document.getElementById('meeting-body').innerHTML = html;
+
+  document.querySelectorAll('.cat-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      document.querySelectorAll('.cat-card').forEach(function(c) { c.classList.remove('selected'); });
+      card.classList.add('selected');
+      meetingData.category = card.dataset.cat;
+    });
+  });
+  document.getElementById('btn-step2-next').addEventListener('click', nextMeetingStep);
+  document.getElementById('btn-step2-skip').addEventListener('click', nextMeetingStep);
+}
+
+function renderStep3() {
+  meetingData.step = 3;
+  renderStepBar(3);
+  var body = document.getElementById('meeting-body');
+  body.innerHTML =
+    '<div class="step-question">Ne konuştunuz?</div>' +
+    '<div class="step-sub">Yaz ya da sesle not bırak</div>' +
+    '<textarea class="meeting-textarea" id="f-notes" placeholder="Aklında ne kaldı?">' + (meetingData.notes || '') + '</textarea>' +
+    '<button class="mic-btn" id="btn-mic">' +
+      '<div class="mic-btn-inner">' +
+        '<div class="mic-icon-wrap" id="mic-icon-wrap">🎤</div>' +
+        '<div><div class="mic-label" id="mic-label">Sesle Not Al</div><div class="mic-sub">Bas ve konuş</div></div>' +
+      '</div>' +
+    '</button>' +
+    '<button class="btn-meeting-next" id="btn-step3-next">İleri →</button>' +
+    '<button class="btn-skip" id="btn-step3-skip">Geç</button>';
+
+  document.getElementById('btn-mic').addEventListener('click', toggleMic);
+  document.getElementById('btn-step3-next').addEventListener('click', nextMeetingStep);
+  document.getElementById('btn-step3-skip').addEventListener('click', nextMeetingStep);
+}
+
+async function toggleMic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showToast('Tarayıcınız ses tanımayı desteklemiyor'); return;
+  }
+  if (isRecording) { if (recognition) recognition.stop(); return; }
+
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e) {
+    showToast('Mikrofon izni gerekli'); return;
+  }
+
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'tr-TR';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  var textarea = document.getElementById('f-notes');
+  var micBtn = document.getElementById('btn-mic');
+  var micLabel = document.getElementById('mic-label');
+  var micIconWrap = document.getElementById('mic-icon-wrap');
+  var finalTranscript = textarea ? textarea.value : '';
+
+  recognition.onstart = function() {
+    isRecording = true;
+    if (micBtn) micBtn.classList.add('recording');
+    if (micLabel) micLabel.textContent = 'Dinleniyor...';
+    if (micIconWrap) micIconWrap.innerHTML = '<div class="mic-waves"><span></span><span></span><span></span></div>';
+  };
+
+  recognition.onresult = function(e) {
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    if (textarea) textarea.value = finalTranscript + interim;
+  };
+
+  recognition.onend = function() {
+    isRecording = false;
+    if (micBtn) micBtn.classList.remove('recording');
+    if (micLabel) micLabel.textContent = 'Sesle Not Al';
+    if (micIconWrap) micIconWrap.innerHTML = '🎤';
+    meetingData.notes = textarea ? textarea.value : '';
+  };
+
+  recognition.onerror = function(e) {
+    isRecording = false;
+    showToast('Ses hatası: ' + e.error);
+    if (micBtn) micBtn.classList.remove('recording');
+    if (micLabel) micLabel.textContent = 'Sesle Not Al';
+    if (micIconWrap) micIconWrap.innerHTML = '🎤';
+  };
+
+  recognition.start();
+}
+
+async function renderStep4() {
+  meetingData.step = 4;
+  renderStepBar(4);
+  var notesEl = document.getElementById('f-notes');
+  if (notesEl) meetingData.notes = notesEl.value;
+
+  document.getElementById('meeting-body').innerHTML =
+    '<div class="step-question">Görüşme Kartı</div>' +
+    '<div class="step-sub">AI analiz ediyor...</div>' +
+    '<div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span>Görüşme analiz ediliyor</span></div>';
+
+  if (meetingData.notes && meetingData.notes.length > 10) {
+    var result = await apiPost('/api/ai', { notes: meetingData.notes, person_name: meetingData.personName });
+    if (result && !result.error) aiResult = result;
+  }
+  renderAiResult(false);
+}
+
+function renderAiResult(editMode) {
+  var body = document.getElementById('meeting-body');
+  var r = aiResult || {};
+  var ucNames = meetingData.userCompanyNames || [];
+  var ucLabel = ucNames.length > 0 ? '<div class="gc-uc-label">Temsil: <strong>' + ucNames.join(' + ') + '</strong></div>' : '';
+
+  if (editMode) {
+    var actionsText = (r.actions || []).map(function(a) { return a.text; }).join('\n');
+    var remindersText = (r.reminders || []).map(function(rem) { return (rem.date || '') + ' ' + (rem.time || '') + ' ' + rem.text; }).join('\n');
+    body.innerHTML =
+      '<div class="step-question">Görüşme Kartı</div>' +
+      '<div class="ai-badge-row"><span class="ai-badge" style="background:#FEF3C7;color:#92400E;">Düzenleme Modu</span></div>' +
+      ucLabel +
+      '<div class="gc-section-lbl">Görüşme Özeti</div><textarea class="meeting-textarea" id="edit-summary" style="min-height:80px;">' + (r.summary || '') + '</textarea>' +
+      '<div class="gc-section-lbl">Aksiyonlar (her satır ayrı)</div><textarea class="meeting-textarea" id="edit-actions" style="min-height:80px;">' + actionsText + '</textarea>' +
+      '<div class="gc-section-lbl">Hatırlatmalar (YYYY-MM-DD HH:MM metin)</div><textarea class="meeting-textarea" id="edit-reminders" style="min-height:80px;">' + remindersText + '</textarea>' +
+      '<div class="gc-section-lbl">Beklenen Dönüş</div><textarea class="meeting-textarea" id="edit-followup" style="min-height:60px;">' + (r.followup || '') + '</textarea>' +
+      '<button class="btn-meeting-save" id="btn-apply-edits">Onayla</button>' +
+      '<button class="btn-skip" id="btn-cancel-edits">Vazgeç</button>';
+    document.getElementById('btn-apply-edits').addEventListener('click', applyEdits);
+    document.getElementById('btn-cancel-edits').addEventListener('click', function() { renderAiResult(false); });
+    return;
+  }
+
+  var html = '<div class="step-question">Görüşme Kartı</div><div class="ai-badge-row"><span class="ai-badge">AI Özeti</span></div>' + ucLabel;
+  if (r.summary) html += '<div class="gc-section-lbl">Görüşme Özeti</div><div class="gc-card"><div class="gc-text">' + r.summary + '</div></div>';
+  if (r.actions && r.actions.length > 0) {
+    html += '<div class="gc-section-lbl">Aksiyonlar</div>';
+    r.actions.forEach(function(a, i) {
+      html += '<div class="gc-action-item" id="action-' + i + '"><div class="gc-check ' + (a.done ? 'done' : '') + '"></div><div><div class="gc-action-text">' + a.text + '</div>' + (a.person ? '<div class="gc-action-sub">' + a.person + '</div>' : '') + '</div></div>';
+    });
+  }
+  if (r.reminders && r.reminders.length > 0) {
+    html += '<div class="gc-section-lbl">Hatırlatmalar</div>';
+    r.reminders.forEach(function(rem) {
+      html += '<div class="gc-reminder-item"><div class="gc-rem-dot ' + (rem.time ? 'urgent' : '') + '"></div><div class="gc-rem-date">' + (rem.date ? formatDate(rem.date) : 'Bugün') + (rem.time ? ' ' + rem.time : '') + '</div><div class="gc-rem-text">' + rem.text + '</div></div>';
+    });
+  }
+  if (r.followup) html += '<div class="gc-section-lbl">Beklenen Dönüş</div><div class="gc-card"><div class="gc-text">' + r.followup + '</div></div>';
+  if (!r.summary && !meetingData.notes) html += '<div class="gc-empty">Not girilmedi. Yine de kaydetmek istiyor musunuz?</div>';
+  html += '<button class="btn-meeting-save" id="btn-save-meeting">Kaydet</button>';
+  html += '<button class="btn-skip" id="btn-edit-meeting">Düzenle</button>';
+  body.innerHTML = html;
+
+  document.getElementById('btn-save-meeting').addEventListener('click', saveMeeting);
+  document.getElementById('btn-edit-meeting').addEventListener('click', function() { renderAiResult(true); });
+  document.querySelectorAll('.gc-action-item').forEach(function(item, i) {
+    item.querySelector('.gc-check').addEventListener('click', function() {
+      if (aiResult && aiResult.actions) {
+        aiResult.actions[i].done = !aiResult.actions[i].done;
+        this.classList.toggle('done');
+      }
+    });
+  });
+}
+
+function applyEdits() {
+  var summary = document.getElementById('edit-summary') ? document.getElementById('edit-summary').value : '';
+  var actionsText = document.getElementById('edit-actions') ? document.getElementById('edit-actions').value : '';
+  var remindersText = document.getElementById('edit-reminders') ? document.getElementById('edit-reminders').value : '';
+  var followup = document.getElementById('edit-followup') ? document.getElementById('edit-followup').value : '';
+  if (!aiResult) aiResult = {};
+  aiResult.summary = summary;
+  aiResult.actions = actionsText.split('\n').filter(function(l) { return l.trim(); }).map(function(l) { return { text: l.trim(), person: '', done: false }; });
+  aiResult.reminders = remindersText.split('\n').filter(function(l) { return l.trim(); }).map(function(l) {
+    var parts = l.trim().split(' ');
+    var date = parts[0] && parts[0].match(/^\d{4}-\d{2}-\d{2}$/) ? parts[0] : null;
+    var time = parts[1] && parts[1].match(/^\d{2}:\d{2}$/) ? parts[1] : null;
+    var text = parts.slice(date ? (time ? 2 : 1) : 0).join(' ');
+    return { date: date, time: time, text: text };
+  });
+  aiResult.followup = followup;
+  renderAiResult(false);
+}
+
+async function saveMeeting() {
+  var data = await apiPost('/api/meetings', {
+    person_id: meetingData.personId,
+    company_id: meetingData.companyId,
+    user_company_ids: meetingData.userCompanyIds,
+    category: meetingData.category,
+    city: meetingData.city,
+    notes: meetingData.notes,
+    ai_summary: aiResult ? aiResult.summary || '' : '',
+    ai_actions: aiResult ? aiResult.actions || [] : [],
+    ai_reminders: aiResult ? aiResult.reminders || [] : [],
+    ai_followup: aiResult ? aiResult.followup || '' : '',
+  });
+  if (data && !data.error) {
+    showToast('✓ Görüşme Kartı kaydedildi');
+    showScreen('screen-home');
+    loadContacts();
+  } else {
+    showToast('Hata: ' + (data ? data.error || '' : ''));
+  }
+}
+
+function nextMeetingStep() {
+  if (meetingData.step === 1) renderStep2();
+  else if (meetingData.step === 2) {
+    var cityEl = document.getElementById('f-city');
+    meetingData.city = cityEl ? cityEl.value : '';
+    renderStep3();
+  } else if (meetingData.step === 3) {
+    var notesEl = document.getElementById('f-notes');
+    meetingData.notes = notesEl ? notesEl.value : '';
+    renderStep4();
+  }
+}
+
+async function loadMeetingCards(personId) {
+  var meetings = await apiGet('/api/meetings?person_id=' + personId);
+  if (!meetings) return;
+  var container = document.getElementById('meeting-cards-list');
+  if (!container) return;
+  var header = document.getElementById('meeting-cards-header');
+  if (header) header.textContent = 'Görüşme Kartları (' + meetings.length + ')';
+  if (meetings.length === 0) { container.innerHTML = '<div class="gc-empty">Henüz görüşme kaydı yok</div>'; return; }
+  var html = '';
+  meetings.forEach(function(m) {
+    var actions = Array.isArray(m.ai_actions) ? m.ai_actions : (m.ai_actions ? JSON.parse(m.ai_actions) : []);
+    var reminders = Array.isArray(m.ai_reminders) ? m.ai_reminders : (m.ai_reminders ? JSON.parse(m.ai_reminders) : []);
+    var activeActions = actions.filter(function(a) { return !a.done; }).length;
+    var ucData = m.user_companies_data || [];
+    var roleLabel = ucData.length > 0 ? ucData.map(function(uc) { return uc.company_name; }).join(' + ') : 'Şahsen';
+    html += '<div class="gk-card"><div class="gk-date">' + formatDate(m.created_at) + '</div><span class="gk-role">' + roleLabel + ' adına</span><div class="gk-ozet">' + (m.ai_summary || m.notes || '—') + '</div><div class="gk-meta">';
+    if (activeActions > 0) html += '<span class="gk-tag active">⚡ ' + activeActions + ' aksiyon</span>';
+    if (reminders.length > 0) html += '<span class="gk-tag active">🔔 ' + reminders.length + ' hatırlatma</span>';
+    if (m.category) html += '<span class="gk-tag">' + m.category + '</span>';
+    if (m.city) html += '<span class="gk-tag">' + m.city + '</span>';
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
+}
+
+// ---- USER COMPANIES ----
+var userCompanies = [];
+
 async function loadUserCompanies() {
-  const data = await apiGet('/api/usercompanies');
+  var data = await apiGet('/api/usercompanies');
   if (!data) return;
   userCompanies = data;
   renderUserCompanies();
 }
 
 function renderUserCompanies() {
-  const list = document.getElementById('user-companies-list');
+  var list = document.getElementById('user-companies-list');
   if (!list) return;
   if (userCompanies.length === 0) {
-    list.innerHTML = '<div style="font-size:12px; color:var(--text3); padding:8px 0;">Henüz şirket eklenmedi</div>';
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0;">Henüz şirket eklenmedi</div>';
     return;
   }
-  list.innerHTML = userCompanies.map(c => `
-    <div class="p-card" style="margin-bottom:8px;">
-      <div class="p-card-inner">
-        <div class="avatar" style="background:#EEF0FF; color:#4B5FFA; border-radius:10px; font-size:16px;">🏢</div>
-        <div class="p-info">
-          <div class="p-name">${c.company_name}</div>
-          <div class="p-title">${c.title || ''} ${c.is_default ? '⭐' : ''}</div>
-        </div>
-        <button onclick="deleteUserCompany('${c.id}')" style="margin-left:auto; background:#FEF2F2; color:#DC2626; border:none; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:700;">Sil</button>
-      </div>
-    </div>
-  `).join('');
+  list.innerHTML = userCompanies.map(function(c) {
+    return '<div class="p-card" style="margin-bottom:8px;"><div class="p-card-inner"><div class="avatar" style="background:#EEF0FF;color:#4B5FFA;border-radius:10px;font-size:16px;">🏢</div><div class="p-info"><div class="p-name">' + c.company_name + '</div><div class="p-title">' + (c.title || '') + (c.is_default ? ' ⭐' : '') + '</div></div><button onclick="deleteUserCompany(\'' + c.id + '\')" style="margin-left:auto;background:#FEF2F2;color:#DC2626;border:none;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">Sil</button></div></div>';
+  }).join('');
 }
 
 window.deleteUserCompany = async function(id) {
   if (!confirm('Bu şirketi silmek istiyor musunuz?')) return;
-  const { apiDelete } = await import('./js/auth.js');
-  await apiDelete(`/api/usercompanies?id=${id}`);
+  await apiDelete('/api/usercompanies?id=' + id);
   await loadUserCompanies();
   showToast('Şirket silindi');
 };
 
-// =====================
-// VERIFY FORM
-// =====================
-function readForm() {
-  return {
-    full_name: document.getElementById('f-name').value.trim(),
-    company_name: document.getElementById('f-company').value.trim(),
-    title: document.getElementById('f-title').value.trim(),
-    phone: document.getElementById('f-phone').value.trim(),
-    gsm: document.getElementById('f-gsm').value.trim(),
-    fax: document.getElementById('f-fax').value.trim(),
-    email: document.getElementById('f-email').value.trim(),
-    web: document.getElementById('f-web').value.trim(),
-    address: document.getElementById('f-address').value.trim(),
-    sector: document.getElementById('f-sector').value.trim(),
-  };
+// ---- EXPORT ----
+function exportExcel() {
+  if (!contacts.length) { showToast('Henüz kişi yok'); return; }
+  var rows = contacts.map(function(c) {
+    return { 'Ad Soyad': c.full_name||'', 'Firma': c.company_name||'', 'Unvan': c.title||'', 'Telefon': c.phone||'', 'GSM': c.gsm||'', 'E-posta': c.email||'', 'Web': c.web||'', 'Sektör': c.sector||'' };
+  });
+  var wb = XLSX.utils.book_new();
+  var ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Kişiler');
+  XLSX.writeFile(wb, 'KartCRM_Kisiler.xlsx');
+  showToast('✓ Excel indirildi');
 }
 
-async function saveContact() {
-  const formData = readForm();
-  if (!formData.full_name) {
-    document.getElementById('verify-error').style.display = 'block';
-    return;
-  }
-  document.getElementById('verify-error').style.display = 'none';
-
-  const data = await apiPost('/api/contacts', formData);
-  if (data && !data.error) {
-    await loadContacts();
-    showToast('✓ Kişi kaydedildi');
-
-    // Görüşme akışını başlat
-    startMeetingFlow(data.id, formData.full_name, null);
-  } else {
-    showToast('Kayıt hatası: ' + (data?.error || ''));
-  }
+// ---- REMINDERS ----
+async function loadReminders() {
+  var data = await apiGet('/api/reminders');
+  if (!data) return;
+  var bar = document.getElementById('reminders-bar');
+  var list = document.getElementById('reminders-list');
+  var statEl = document.getElementById('stat-reminders');
+  if (statEl) statEl.textContent = data.length;
+  if (data.length === 0) { if (bar) bar.style.display = 'none'; return; }
+  if (bar) bar.style.display = 'block';
+  if (list) list.innerHTML = data.map(function(r) {
+    return '<div class="reminder-item"><div class="rem-dot"></div><div><strong>' + (r.full_name || '') + '</strong><div style="font-size:11px;color:var(--text2);">' + r.message + '</div></div></div>';
+  }).join('');
 }
 
-// =====================
-// BİLDİRİM
-// =====================
+// ---- NOTIFICATIONS ----
 async function requestNotificationPermission() {
   if (!('Notification' in window)) { showToast('Tarayıcı bildirimleri desteklemiyor'); return; }
-  const permission = await Notification.requestPermission();
+  var permission = await Notification.requestPermission();
   if (permission === 'granted') {
     document.getElementById('notif-status').textContent = 'Aktif ✓';
     showToast('✓ Bildirimler aktif');
   } else {
     document.getElementById('notif-status').textContent = 'Reddedildi';
-    showToast('Bildirim izni reddedildi');
   }
 }
 
-function updateNotifStatus() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'granted') {
-    document.getElementById('notif-status').textContent = 'Aktif ✓';
-  } else if (Notification.permission === 'denied') {
-    document.getElementById('notif-status').textContent = 'Reddedildi';
-  }
+// ---- INIT ----
+function initApp() {
+  if (!authToken || !currentUser) { showScreen('screen-auth'); return; }
+  var name = currentUser.full_name || currentUser.email.split('@')[0];
+  var greetEl = document.getElementById('greeting-text');
+  if (greetEl) greetEl.textContent = 'Merhaba, ' + name + ' 👋';
+  var profName = document.getElementById('profile-name');
+  var profEmail = document.getElementById('profile-email');
+  var profAv = document.getElementById('profile-avatar');
+  if (profName) profName.textContent = currentUser.full_name || '-';
+  if (profEmail) profEmail.textContent = currentUser.email || '-';
+  if (profAv) profAv.textContent = getInitials(currentUser.full_name || currentUser.email);
+  showScreen('screen-home');
+  loadContacts();
+  loadUserCompanies();
+  loadReminders();
 }
 
-// =====================
-// EVENT LISTENERS
-// =====================
-document.addEventListener('DOMContentLoaded', () => {
-  const { authToken, currentUser } = { 
-    authToken: localStorage.getItem('kartcrm_token'),
-    currentUser: JSON.parse(localStorage.getItem('kartcrm_user') || 'null')
-  };
+// ---- EVENT LISTENERS ----
+document.addEventListener('DOMContentLoaded', function() {
+  if (authToken && currentUser) initApp();
+  else showScreen('screen-auth');
 
-  if (authToken && currentUser) { initApp(); }
-  else { showScreen('screen-auth'); }
+  document.getElementById('btn-login').addEventListener('click', login);
+  document.getElementById('btn-register').addEventListener('click', register);
+  document.getElementById('login-password').addEventListener('keydown', function(e) { if (e.key === 'Enter') login(); });
 
-  initAuth();
-  initContacts();
-  initCamera();
+  document.querySelectorAll('#btn-logout, #btn-logout2').forEach(function(btn) {
+    if (btn) btn.addEventListener('click', logout);
+  });
 
-  window.addEventListener('auth:login', initApp);
-
-  // FAB
-  document.getElementById('fab-add')?.addEventListener('click', () => {
+  document.getElementById('fab-add').addEventListener('click', function() {
     fillVerifyForm({});
+    document.getElementById('ocr-banner').textContent = 'Kartvizit ekle veya manuel gir';
     showScreen('screen-add');
   });
 
-  // Add options
-  document.getElementById('opt-camera')?.addEventListener('click', async () => {
+  document.getElementById('btn-search-toggle').addEventListener('click', function() {
+    var bar = document.getElementById('search-bar');
+    var hidden = !bar.style.display || bar.style.display === 'none';
+    bar.style.display = hidden ? 'flex' : 'none';
+    if (hidden) document.getElementById('search-input').focus();
+  });
+
+  document.getElementById('search-input').addEventListener('input', function(e) {
+    searchQuery = e.target.value.toLowerCase();
+    renderContacts();
+  });
+
+  document.getElementById('opt-camera').addEventListener('click', async function() {
     showScreen('screen-camera');
     await startCamera();
   });
-  document.getElementById('opt-manual')?.addEventListener('click', () => {
+
+  document.getElementById('opt-manual').addEventListener('click', function() {
     fillVerifyForm({});
     document.getElementById('ocr-banner').textContent = '✏️ Bilgileri manuel olarak girin';
     showScreen('screen-verify');
   });
 
-  // Verify
-  document.getElementById('btn-verify-next')?.addEventListener('click', saveContact);
-
-  // Back buttons
-  document.querySelectorAll('[data-back]').forEach(btn => {
-    btn.addEventListener('click', () => { stopCamera(); showScreen(btn.dataset.back); });
+  document.getElementById('btn-capture').addEventListener('click', async function() {
+    var video = document.getElementById('camera-video');
+    var canvas = document.getElementById('camera-canvas');
+    if (!video.videoWidth) { showToast('Kamera hazır değil'); return; }
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stopCamera();
+    var data = await sendToOCR(canvas.toDataURL('image/jpeg', 0.9));
+    fillVerifyForm(data);
+    showScreen('screen-verify');
   });
 
-  // Nav
-  document.querySelectorAll('[data-screen]').forEach(btn => {
-    btn.addEventListener('click', () => showScreen(btn.dataset.screen));
+  document.getElementById('file-input').addEventListener('change', async function(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = async function(ev) {
+      stopCamera();
+      var data = await sendToOCR(ev.target.result);
+      fillVerifyForm(data);
+      showScreen('screen-verify');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   });
 
-  // Export
-  document.getElementById('btn-export-excel')?.addEventListener('click', () => exportExcel(contacts));
-  document.getElementById('btn-export-pdf')?.addEventListener('click', () => exportPDF(contacts));
+  document.getElementById('btn-verify-next').addEventListener('click', async function() {
+    var formData = readForm();
+    if (!formData.full_name) { document.getElementById('verify-error').style.display = 'block'; return; }
+    document.getElementById('verify-error').style.display = 'none';
+    var data = await apiPost('/api/contacts', formData);
+    if (data && !data.error) {
+      await loadContacts();
+      showToast('✓ Kişi kaydedildi');
+      startMeetingFlow(data.id, formData.full_name, null);
+    } else {
+      showToast('Kayıt hatası: ' + (data ? data.error || '' : ''));
+    }
+  });
 
-  // Notification
-  document.getElementById('btn-notif-toggle')?.addEventListener('click', requestNotificationPermission);
+  document.getElementById('btn-delete').addEventListener('click', async function() {
+    if (!window._currentDetailId) return;
+    if (!confirm('Bu kişiyi silmek istiyor musunuz?')) return;
+    await apiDelete('/api/contacts?id=' + window._currentDetailId);
+    await loadContacts();
+    showToast('Silindi');
+    showScreen('screen-home');
+  });
 
-  // User company form
-  document.getElementById('btn-add-company')?.addEventListener('click', () => {
+  document.getElementById('btn-export-excel').addEventListener('click', exportExcel);
+  document.getElementById('btn-notif-toggle').addEventListener('click', requestNotificationPermission);
+
+  document.getElementById('btn-add-company').addEventListener('click', function() {
     document.getElementById('add-company-form').style.display = 'block';
   });
-  document.getElementById('btn-cancel-company')?.addEventListener('click', () => {
+  document.getElementById('btn-cancel-company').addEventListener('click', function() {
     document.getElementById('add-company-form').style.display = 'none';
   });
-  document.getElementById('btn-save-company')?.addEventListener('click', async () => {
-    const name = document.getElementById('uc-name').value.trim();
-    const title = document.getElementById('uc-title').value.trim();
-    const isDefault = document.getElementById('uc-default').checked;
+  document.getElementById('btn-save-company').addEventListener('click', async function() {
+    var name = document.getElementById('uc-name').value.trim();
+    var title = document.getElementById('uc-title').value.trim();
+    var isDefault = document.getElementById('uc-default').checked;
     if (!name) { showToast('Şirket adı gerekli'); return; }
-    const data = await apiPost('/api/usercompanies', { company_name: name, title, is_default: isDefault });
+    var data = await apiPost('/api/usercompanies', { company_name: name, title: title, is_default: isDefault });
     if (data && !data.error) {
       document.getElementById('add-company-form').style.display = 'none';
       document.getElementById('uc-name').value = '';
@@ -226,5 +882,13 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadUserCompanies();
       showToast('✓ Şirket eklendi');
     }
+  });
+
+  document.querySelectorAll('[data-back]').forEach(function(btn) {
+    btn.addEventListener('click', function() { stopCamera(); showScreen(btn.dataset.back); });
+  });
+
+  document.querySelectorAll('[data-screen]').forEach(function(btn) {
+    btn.addEventListener('click', function() { showScreen(btn.dataset.screen); });
   });
 });
