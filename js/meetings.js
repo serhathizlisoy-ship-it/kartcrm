@@ -134,13 +134,18 @@ window.toggleMic = async function() {
     showToast('Tarayıcınız ses tanımayı desteklemiyor');
     return;
   }
-  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e) { showToast('Mikrofon izni gerekli'); return; }
- if (isRecording) { recognition && recognition.stop(); return; }
+  if (isRecording) { if (recognition) recognition.stop(); return; }
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e) {
+    showToast('Mikrofon izni gerekli');
+    return;
+  }
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
   recognition.lang = 'tr-TR';
-  recognition.continuous = false;
+  recognition.continuous = true;
   recognition.interimResults = true;
 
   const textarea = document.getElementById('f-notes');
