@@ -791,6 +791,30 @@ function initApp() {
 }
 
 // ---- EVENT LISTENERS ----
+
+window.deleteCurrentContact = async function() {
+  if (!window._currentDetailId) return;
+  if (!confirm('Bu kisiyi silmek istiyor musunuz?')) return;
+  await apiDelete('/api/contacts?id=' + window._currentDetailId);
+  await loadContacts();
+  showToast('Silindi');
+  showScreen('screen-home');
+};
+
+window.editCurrentContact = function() {
+  var c = contacts.find(function(x) { return x.id === window._currentDetailId; });
+  if (!c) return;
+  fillVerifyForm({
+    full_name: c.full_name, company_name: c.company_name,
+    title: c.title, phone: c.phone, gsm: c.gsm, fax: c.fax,
+    email: c.email, web: c.web, address: c.address, sector: c.sector
+  });
+  var banner = document.getElementById('ocr-banner');
+  if (banner) banner.textContent = 'Bilgileri duzenleyin';
+  window._editingContactId = c.id;
+  showScreen('screen-verify');
+};
+
 document.addEventListener('DOMContentLoaded', function() {
   if (authToken && currentUser) initApp();
   else showScreen('screen-auth');
