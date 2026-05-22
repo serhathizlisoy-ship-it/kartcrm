@@ -28,7 +28,7 @@ export default async function handler(req, res) {
             },
             {
               type: 'text',
-              text: 'Bu kartvizit görselindeki bilgileri çıkar. SADECE geçerli JSON döndür, başka hiçbir şey yazma:\n{"name":"","company":"","title":"","phone":"","gsm":"","fax":"","email":"","web":"","address":"","sector":""}'
+              text: 'Bu kartvizit görselindeki bilgileri çıkar ve aşağıdaki kurallara göre Türkçe formatla.\n\nKURALLAR:\n- Tüm değerler Türkçe olmalı. İngilizce kelimeler varsa Türkçe karşılığını yaz (örnek: "advertising agency" -> "Reklam Ajansı", "marketing" -> "Pazarlama").\n- Şirket adlarını doğru büyük-küçük harf düzeniyle yaz (örnek: "alphacreative" -> "Alpha Creative", "ABCFİRMA" -> "ABC Firma").\n- Kişi adını doğru formatla: Ad SOYAD (soyadı büyük harfle). Örnek: "Alper HACIOĞLU".\n- Unvanı/pozisyonu Türkçe ve uygun büyük harflerle yaz (örnek: "agency director" -> "Ajans Direktörü", "general manager" -> "Genel Müdür").\n- Telefon numaralarını "0XXX XXX XX XX" formatında yaz.\n- E-posta ve web adreslerini olduğu gibi küçük harfle bırak.\n- Sektörü kısa ve Türkçe yaz (örnek: "Reklam Ajansı", "Yazılım", "Tekstil").\n- Kartvizitte olmayan bir alan varsa o alanı boş string ("") bırak, asla uydurma.\n\nSADECE geçerli JSON döndür, başka hiçbir şey yazma:\n{"name":"","company":"","title":"","phone":"","gsm":"","fax":"","email":"","web":"","address":"","sector":""}'
             }
           ]
         }]
