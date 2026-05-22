@@ -119,7 +119,7 @@ function renderStep3() {
     '<div class="step-question">Ne konuştunuz?</div>' +
     '<div class="step-sub">Yaz ya da sesle not bırak</div>' +
     '<textarea class="meeting-textarea" id="f-notes" placeholder="Aklında ne kaldı?">' + (meetingData.notes || '') + '</textarea>' +
-    '<button class="mic-btn" id="btn-mic" onclick="window.toggleMic()">' +
+    '<button class="mic-btn" id="btn-mic">' +
       '<div class="mic-btn-inner">' +
         '<div class="mic-icon-wrap" id="mic-icon-wrap">🎤</div>' +
         '<div><div class="mic-label" id="mic-label">Sesle Not Al</div><div class="mic-sub">Bas ve konuş</div></div>' +
@@ -127,6 +127,10 @@ function renderStep3() {
     '</button>' +
     '<button class="btn-meeting-next" onclick="window.nextStep()">İleri →</button>' +
     '<button class="btn-skip" onclick="window.nextStep()">Geç</button>';
+  setTimeout(function() {
+    var micBtn = document.getElementById('btn-mic');
+    if (micBtn) micBtn.addEventListener('click', window.toggleMic);
+  }, 50);
 }
 
 window.toggleMic = async function() {
