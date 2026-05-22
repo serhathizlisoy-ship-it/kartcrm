@@ -129,12 +129,13 @@ function renderStep3() {
     '<button class="btn-skip" onclick="window.nextStep()">Geç</button>';
 }
 
-window.toggleMic = function() {
+window.toggleMic = async function() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     showToast('Tarayıcınız ses tanımayı desteklemiyor');
     return;
   }
-  if (isRecording) { recognition && recognition.stop(); return; }
+  try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e) { showToast('Mikrofon izni gerekli'); return; }
+ if (isRecording) { recognition && recognition.stop(); return; }
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
