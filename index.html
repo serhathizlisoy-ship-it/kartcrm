@@ -4,31 +4,82 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#4B5FFA">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="KartCRM">
 <title>KartCRM</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- SCREEN: GİRİŞ -->
+<div class="screen active" id="screen-auth">
+  <div class="auth-container">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🪪</div>
+      <div class="auth-logo-text">KartCRM</div>
+      <div class="auth-logo-sub">Kişisel iş asistanın</div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Giriş Yap</button>
+      <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Kayıt Ol</button>
+    </div>
+
+    <div id="form-login">
+      <div class="form-group">
+        <label class="form-lbl">E-posta</label>
+        <input class="form-input" type="email" id="login-email" placeholder="ornek@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-lbl">Şifre</label>
+        <input class="form-input" type="password" id="login-password" placeholder="••••••••">
+      </div>
+      <div class="auth-error" id="login-error"></div>
+      <button class="btn-primary" id="btn-login">Giriş Yap</button>
+    </div>
+
+    <div id="form-register" style="display:none;">
+      <div class="form-group">
+        <label class="form-lbl">Ad Soyad</label>
+        <input class="form-input" type="text" id="reg-name" placeholder="Adınız Soyadınız">
+      </div>
+      <div class="form-group">
+        <label class="form-lbl">E-posta</label>
+        <input class="form-input" type="email" id="reg-email" placeholder="ornek@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-lbl">Şifre</label>
+        <input class="form-input" type="password" id="reg-password" placeholder="En az 6 karakter">
+      </div>
+      <div class="auth-error" id="reg-error"></div>
+      <button class="btn-primary" id="btn-register">Kayıt Ol</button>
+    </div>
+  </div>
+</div>
+
 <!-- SCREEN: ANA SAYFA -->
-<div class="screen active" id="screen-home">
+<div class="screen" id="screen-home">
   <div class="topbar">
     <div>
-      <div class="topbar-greeting">Merhaba 👋</div>
+      <div class="topbar-greeting" id="greeting-text">Merhaba 👋</div>
       <div class="topbar-title">Kişi Rehberim</div>
     </div>
     <div class="topbar-actions">
       <button class="icon-btn" id="btn-search-toggle">🔍</button>
+      <button class="icon-btn" id="btn-logout">🚪</button>
     </div>
   </div>
 
+  <!-- Hatırlatmalar -->
+  <div id="reminders-bar" style="display:none;">
+    <div class="reminders-card" id="reminders-list"></div>
+  </div>
+
   <div class="hero-card">
-    <div class="hero-stats" id="hero-stats">
+    <div class="hero-stats">
       <div class="hero-stat">
         <div class="hero-stat-num" id="stat-total">0</div>
         <div class="hero-stat-lbl">Toplam kişi</div>
@@ -38,8 +89,8 @@
         <div class="hero-stat-lbl">Bu ay eklenen</div>
       </div>
       <div class="hero-stat">
-        <div class="hero-stat-num" id="stat-sectors">0</div>
-        <div class="hero-stat-lbl">Sektör</div>
+        <div class="hero-stat-num" id="stat-reminders">0</div>
+        <div class="hero-stat-lbl">Bekleyen takip</div>
       </div>
     </div>
   </div>
@@ -73,12 +124,13 @@
 
   <div class="nav">
     <button class="nav-i on" data-screen="screen-home">
-      <div class="nav-dot">⌂</div>
-      <span>Kişiler</span>
+      <div class="nav-dot">⌂</div><span>Kişiler</span>
     </button>
     <button class="nav-i" data-screen="screen-export">
-      <div class="nav-dot">↑</div>
-      <span>Export</span>
+      <div class="nav-dot">↑</div><span>Export</span>
+    </button>
+    <button class="nav-i" onclick="showScreen('screen-profile')">
+      <div class="nav-dot">👤</div><span>Profil</span>
     </button>
   </div>
 </div>
@@ -114,20 +166,18 @@
       </div>
       <div class="add-opt-arrow">›</div>
     </div>
-    <div class="ai-hint">
-      ✦ Yapay zeka kartvizitteki tüm bilgileri otomatik okur. Fotoğraf çekmen yeterli.
-    </div>
+    <div class="ai-hint">✦ Yapay zeka kartvizitteki tüm bilgileri otomatik okur.</div>
   </div>
 </div>
 
-<!-- SCREEN: KAMERA / FOTOĞRAF -->
+<!-- SCREEN: KAMERA -->
 <div class="screen" id="screen-camera">
   <div class="topbar-simple">
     <button class="back-btn" data-back="screen-add">← Geri</button>
     <div class="topbar-title">Kartvizit Tara</div>
   </div>
   <div class="content">
-    <div class="camera-area" id="camera-area">
+    <div class="camera-area">
       <video id="camera-video" autoplay playsinline></video>
       <div class="camera-corners">
         <div class="cc tl"></div><div class="cc tr"></div>
@@ -136,37 +186,10 @@
       <div class="camera-label">Kartviziti çerçeve içine al</div>
     </div>
     <canvas id="camera-canvas" style="display:none;"></canvas>
-
-    <!-- Dosyadan yükleme (galeri) -->
     <input type="file" id="file-input" accept="image/*" style="display:none;">
-
     <button class="btn-primary" id="btn-capture">📸 Fotoğraf Çek</button>
-    <label for="file-input" class="btn-sec" style="display:block;text-align:center;cursor:pointer;padding:13px;border-radius:12px;background:#fff;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;">🖼 Galeriden Seç</label>
-
-    <div class="ai-hint" id="ocr-loading" style="display:none;">
-      ⏳ AI kartviziti okuyor...
-    </div>
-  </div>
-</div>
-
-<!-- SCREEN: QR OKUT -->
-<div class="screen" id="screen-qr">
-  <div class="topbar-simple">
-    <button class="back-btn" data-back="screen-add">← Geri</button>
-    <div class="topbar-title">QR Kod Okut</div>
-  </div>
-  <div class="content">
-    <div class="camera-area" id="qr-camera-area">
-      <video id="qr-video" autoplay playsinline></video>
-      <div class="camera-corners">
-        <div class="cc tl"></div><div class="cc tr"></div>
-        <div class="cc bl"></div><div class="cc br"></div>
-      </div>
-      <div class="camera-label">QR kodu kameraya göster</div>
-    </div>
-    <div class="ai-hint" id="qr-status">
-      📱 QR kod bekleniyor...
-    </div>
+    <label for="file-input" class="btn-sec" style="display:block;text-align:center;cursor:pointer;padding:13px;border-radius:12px;background:#fff;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;box-shadow:0 2px 8px rgba(75,95,250,0.06);margin-bottom:10px;">🖼 Galeriden Seç</label>
+    <div class="ai-hint" id="ocr-loading" style="display:none;">⏳ AI kartviziti okuyor...</div>
   </div>
 </div>
 
@@ -177,51 +200,17 @@
     <div class="topbar-title">Bilgileri Doğrula</div>
   </div>
   <div class="content">
-    <div class="ocr-success" id="ocr-banner">
-      ✦ AI okudu — bilgileri kontrol edip onaylayın
-    </div>
-
-    <div class="form-group">
-      <label class="form-lbl">Ad Soyad *</label>
-      <input class="form-input" type="text" id="f-name" placeholder="Ad Soyad">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">Firma</label>
-      <input class="form-input" type="text" id="f-company" placeholder="Firma adı">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">Unvan</label>
-      <input class="form-input" type="text" id="f-title" placeholder="Pozisyon / Unvan">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">Telefon</label>
-      <input class="form-input" type="tel" id="f-phone" placeholder="+90 xxx xxx xx xx">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">GSM</label>
-      <input class="form-input" type="tel" id="f-gsm" placeholder="+90 5xx xxx xx xx">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">Fax</label>
-      <input class="form-input" type="tel" id="f-fax" placeholder="Fax numarası">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">E-posta</label>
-      <input class="form-input" type="email" id="f-email" placeholder="ornek@firma.com">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">Web sitesi</label>
-      <input class="form-input" type="url" id="f-web" placeholder="www.firma.com">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">Adres</label>
-      <input class="form-input" type="text" id="f-address" placeholder="Şehir / Adres">
-    </div>
-    <div class="form-group">
-      <label class="form-lbl">Sektör</label>
-      <input class="form-input" type="text" id="f-sector" placeholder="İnşaat, Teknoloji...">
-    </div>
-
+    <div class="ocr-success" id="ocr-banner">✦ AI okudu — bilgileri kontrol edip onaylayın</div>
+    <div class="form-group"><label class="form-lbl">Ad Soyad *</label><input class="form-input" type="text" id="f-name" placeholder="Ad Soyad"></div>
+    <div class="form-group"><label class="form-lbl">Firma</label><input class="form-input" type="text" id="f-company" placeholder="Firma adı"></div>
+    <div class="form-group"><label class="form-lbl">Unvan</label><input class="form-input" type="text" id="f-title" placeholder="Pozisyon / Unvan"></div>
+    <div class="form-group"><label class="form-lbl">Telefon</label><input class="form-input" type="tel" id="f-phone" placeholder="+90 xxx xxx xx xx"></div>
+    <div class="form-group"><label class="form-lbl">GSM</label><input class="form-input" type="tel" id="f-gsm" placeholder="+90 5xx xxx xx xx"></div>
+    <div class="form-group"><label class="form-lbl">Fax</label><input class="form-input" type="tel" id="f-fax" placeholder="Fax numarası"></div>
+    <div class="form-group"><label class="form-lbl">E-posta</label><input class="form-input" type="email" id="f-email" placeholder="ornek@firma.com"></div>
+    <div class="form-group"><label class="form-lbl">Web sitesi</label><input class="form-input" type="url" id="f-web" placeholder="www.firma.com"></div>
+    <div class="form-group"><label class="form-lbl">Adres</label><input class="form-input" type="text" id="f-address" placeholder="Şehir / Adres"></div>
+    <div class="form-group"><label class="form-lbl">Sektör</label><input class="form-input" type="text" id="f-sector" placeholder="İnşaat, Teknoloji..."></div>
     <button class="btn-primary" id="btn-verify-next">Onayla ve Devam Et →</button>
     <div class="error-msg" id="verify-error" style="display:none;">Ad Soyad alanı zorunludur.</div>
   </div>
@@ -244,24 +233,22 @@
       <span class="chip" data-cat="Dernek">Dernek</span>
       <span class="chip" data-cat="Diğer">Diğer</span>
     </div>
-
     <div class="divider"></div>
-
     <div class="sec-lbl">Notunuz</div>
-    <textarea class="form-textarea" id="f-note" placeholder="Aklınızda ne kaldı? (opsiyonel)"></textarea>
-
+    <textarea class="form-textarea" id="f-note" placeholder="Aklınızda ne kaldı?"></textarea>
+    <div class="sec-lbl">Sonraki Aksiyon</div>
+    <input class="form-input" type="text" id="f-next-action" placeholder="Örn: Teklif gönder, Ara, Toplantı ayarla" style="margin-bottom:10px;">
+    <div class="sec-lbl">Takip Tarihi</div>
+    <input class="form-input" type="date" id="f-next-date" style="margin-bottom:14px;">
+    <div class="ai-hint" id="ai-suggestion" style="display:none;"></div>
     <button class="btn-primary" id="btn-save">✓ Kaydet</button>
     <button class="btn-sec" id="btn-skip-note">Şimdi Değil, Geç</button>
-
-    <div class="ai-hint">
-      ✦ Notunuzu AI okur, gerektiğinde sizi hatırlatır.
-    </div>
   </div>
 </div>
 
 <!-- SCREEN: KİŞİ DETAY -->
 <div class="screen" id="screen-detail">
-  <div class="detail-hero" id="detail-hero">
+  <div class="detail-hero">
     <div class="detail-topbar">
       <button class="detail-back" data-back="screen-home">←</button>
       <div class="detail-topbar-title">Kişi Detayı</div>
@@ -276,86 +263,87 @@
       </div>
     </div>
   </div>
-
   <div class="info-card" id="detail-info"></div>
-
   <div class="note-card" id="detail-note-card" style="display:none;">
     <div class="note-lbl">📝 Not</div>
     <div class="note-text" id="detail-note"></div>
   </div>
-
+  <div class="note-card" id="detail-action-card" style="display:none; margin-top:10px;">
+    <div class="note-lbl">⚡ Sonraki Aksiyon</div>
+    <div class="note-text" id="detail-action"></div>
+    <div class="note-text" id="detail-action-date" style="margin-top:4px; color:#4B5FFA; font-weight:700;"></div>
+  </div>
   <div style="padding:14px 16px;">
     <button class="btn-danger" id="btn-delete">🗑 Kişiyi Sil</button>
   </div>
-
   <div class="nav">
-    <button class="nav-i on" data-screen="screen-home">
-      <div class="nav-dot">⌂</div>
-      <span>Kişiler</span>
-    </button>
-    <button class="nav-i" data-screen="screen-export">
-      <div class="nav-dot">↑</div>
-      <span>Export</span>
-    </button>
+    <button class="nav-i" data-screen="screen-home"><div class="nav-dot">⌂</div><span>Kişiler</span></button>
+    <button class="nav-i" data-screen="screen-export"><div class="nav-dot">↑</div><span>Export</span></button>
+    <button class="nav-i" onclick="showScreen('screen-profile')"><div class="nav-dot">👤</div><span>Profil</span></button>
   </div>
 </div>
 
 <!-- SCREEN: DIŞA AKTAR -->
 <div class="screen" id="screen-export">
-  <div class="topbar">
-    <div class="topbar-title">Dışa Aktar</div>
-  </div>
+  <div class="topbar"><div class="topbar-title">Dışa Aktar</div></div>
   <div class="content">
     <div class="sec-lbl">Format Seç</div>
     <div class="exp-card" id="btn-export-excel">
       <div class="exp-icon" style="background:#E8F5EE;">📊</div>
-      <div>
-        <div class="exp-title">Excel (.xlsx)</div>
-        <div class="exp-sub">Tüm alanlar, düzenlenebilir</div>
-      </div>
+      <div><div class="exp-title">Excel (.xlsx)</div><div class="exp-sub">Tüm alanlar, düzenlenebilir</div></div>
       <div class="exp-arrow">›</div>
     </div>
     <div class="exp-card" id="btn-export-pdf">
       <div class="exp-icon" style="background:#FEF2F2;">📄</div>
-      <div>
-        <div class="exp-title">PDF Listesi</div>
-        <div class="exp-sub">Yazdırmaya hazır format</div>
-      </div>
+      <div><div class="exp-title">PDF Listesi</div><div class="exp-sub">Yazdırmaya hazır format</div></div>
       <div class="exp-arrow">›</div>
     </div>
-
     <div class="sec-lbl" style="margin-top:16px;">Özet</div>
-    <div class="summary-card" id="export-summary">
-      <div class="summary-row">
-        <span>👥 Toplam kişi</span>
-        <span id="sum-total">0</span>
-      </div>
-      <div class="summary-row">
-        <span>💼 İş görüşmesi</span>
-        <span id="sum-business">0</span>
-      </div>
-      <div class="summary-row">
-        <span>🏭 Sektör sayısı</span>
-        <span id="sum-sectors">0</span>
-      </div>
+    <div class="summary-card">
+      <div class="summary-row"><span>👥 Toplam kişi</span><span id="sum-total">0</span></div>
+      <div class="summary-row"><span>💼 İş görüşmesi</span><span id="sum-business">0</span></div>
+      <div class="summary-row"><span>⚡ Bekleyen takip</span><span id="sum-reminders">0</span></div>
     </div>
   </div>
   <div class="nav">
-    <button class="nav-i" data-screen="screen-home">
-      <div class="nav-dot">⌂</div>
-      <span>Kişiler</span>
-    </button>
-    <button class="nav-i on" data-screen="screen-export">
-      <div class="nav-dot">↑</div>
-      <span>Export</span>
-    </button>
+    <button class="nav-i" data-screen="screen-home"><div class="nav-dot">⌂</div><span>Kişiler</span></button>
+    <button class="nav-i on" data-screen="screen-export"><div class="nav-dot">↑</div><span>Export</span></button>
+    <button class="nav-i" onclick="showScreen('screen-profile')"><div class="nav-dot">👤</div><span>Profil</span></button>
+  </div>
+</div>
+
+<!-- SCREEN: PROFİL -->
+<div class="screen" id="screen-profile">
+  <div class="topbar"><div class="topbar-title">Profil</div></div>
+  <div class="content">
+    <div class="profile-card">
+      <div class="profile-avatar" id="profile-avatar">?</div>
+      <div class="profile-name" id="profile-name">-</div>
+      <div class="profile-email" id="profile-email">-</div>
+    </div>
+    <div class="sec-lbl" style="margin-top:16px;">Bildirimler</div>
+    <div class="p-card" id="btn-notif-toggle" style="cursor:pointer;">
+      <div class="p-card-top">
+        <div class="add-opt-icon" style="background:#EEF0FF; width:38px; height:38px; font-size:18px;">🔔</div>
+        <div>
+          <div class="p-name">Push Bildirimler</div>
+          <div class="p-co" id="notif-status">İzin verilmedi</div>
+        </div>
+        <div class="p-arrow" id="notif-arrow">›</div>
+      </div>
+    </div>
+    <button class="btn-danger" id="btn-logout2" style="margin-top:24px;">Çıkış Yap</button>
+  </div>
+  <div class="nav">
+    <button class="nav-i" data-screen="screen-home"><div class="nav-dot">⌂</div><span>Kişiler</span></button>
+    <button class="nav-i" data-screen="screen-export"><div class="nav-dot">↑</div><span>Export</span></button>
+    <button class="nav-i on" onclick="showScreen('screen-profile')"><div class="nav-dot">👤</div><span>Profil</span></button>
   </div>
 </div>
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- SCRIPTS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 </body>

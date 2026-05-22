@@ -1,20 +1,125 @@
 // =====================
-// KARTCRM - app.js v2
+// KARTCRM v2 - app.js
+// Neon DB + Auth
 // =====================
 
-const CLAUDE_API_KEY = 'YOUR_CLAUDE_API_KEY_HERE';
-
-let contacts = JSON.parse(localStorage.getItem('kartcrm_contacts') || '[]');
+let contacts = [];
+let currentDetailId = null;
 let selectedCategory = '';
 let activeFilter = 'all';
 let cameraStream = null;
-let currentDetailId = null;
 let editMode = false;
+let authToken = localStorage.getItem('kartcrm_token');
+let currentUser = JSON.parse(localStorage.getItem('kartcrm_user') || 'null');
 
-function saveContacts() {
-  localStorage.setItem('kartcrm_contacts', JSON.stringify(contacts));
+// =====================
+// AUTH
+// =====================
+function switchTab(tab) {
+  document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
 }
 
+async function login() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (!email || !password) { errEl.textContent = 'Tüm alanları doldurun'; return; }
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error; return; }
+
+    authToken = data.token;
+    currentUser = data.user;
+    localStorage.setItem('kartcrm_token', authToken);
+    localStorage.setItem('kartcrm_user', JSON.stringify(currentUser));
+    initApp();
+  } catch (e) {
+    errEl.textContent = 'Bağlantı hatası';
+  }
+}
+
+async function register() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const errEl = document.getElementById('reg-error');
+  errEl.textContent = '';
+
+  if (!email || !password) { errEl.textContent = 'Tüm alanları doldurun'; return; }
+  if (password.length < 6) { errEl.textContent = 'Şifre en az 6 karakter olmalı'; return; }
+
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, full_name: name })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error; return; }
+
+    authToken = data.token;
+    currentUser = data.user;
+    localStorage.setItem('kartcrm_token', authToken);
+    localStorage.setItem('kartcrm_user', JSON.stringify(currentUser));
+    initApp();
+  } catch (e) {
+    errEl.textContent = 'Bağlantı hatası';
+  }
+}
+
+function logout() {
+  authToken = null;
+  currentUser = null;
+  localStorage.removeItem('kartcrm_token');
+  localStorage.removeItem('kartcrm_user');
+  contacts = [];
+  showScreen('screen-auth');
+}
+
+// =====================
+// API CALLS
+// =====================
+async function apiGet(path) {
+  const res = await fetch(path, {
+    headers: { 'Authorization': `Bearer ${authToken}` }
+  });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
+async function apiPost(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+    body: JSON.stringify(body)
+  });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
+async function apiDelete(path) {
+  const res = await fetch(path, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${authToken}` }
+  });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
+// =====================
+// YARDIMCI
+// =====================
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const s = document.getElementById(id);
@@ -47,49 +152,61 @@ function getAvatarStyle(name) {
 }
 
 function getCategoryTagClass(cat) {
-  const map = {
-    'İş görüşmesi': 'tag-blue',
-    'Toplantı': 'tag-green',
-    'Fuar': 'tag-amber',
-    'Yemek': 'tag-purple',
-    'Karşılaşma': 'tag-gray',
-    'Dernek': 'tag-gray',
-    'Diğer': 'tag-gray',
-  };
+  const map = { 'İş görüşmesi': 'tag-blue', 'Toplantı': 'tag-green', 'Fuar': 'tag-amber', 'Yemek': 'tag-purple', 'Karşılaşma': 'tag-gray', 'Dernek': 'tag-gray', 'Diğer': 'tag-gray' };
   return map[cat] || 'tag-gray';
 }
 
 function stopAllCameras() {
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop());
-    cameraStream = null;
-  }
-  ['camera-video', 'qr-video'].forEach(id => {
-    const v = document.getElementById(id);
-    if (v) v.srcObject = null;
-  });
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  ['camera-video'].forEach(id => { const v = document.getElementById(id); if (v) v.srcObject = null; });
+}
+
+// =====================
+// CONTACTS
+// =====================
+async function loadContacts() {
+  const data = await apiGet('/api/contacts');
+  if (!data) return;
+  contacts = data;
+  filterAndRender();
+  loadReminders();
+}
+
+async function loadReminders() {
+  const data = await apiGet('/api/reminders');
+  if (!data) return;
+
+  const bar = document.getElementById('reminders-bar');
+  const list = document.getElementById('reminders-list');
+  document.getElementById('stat-reminders').textContent = data.length;
+  document.getElementById('sum-reminders').textContent = data.length;
+
+  if (data.length === 0) { bar.style.display = 'none'; return; }
+
+  bar.style.display = 'block';
+  list.innerHTML = data.map(r => `
+    <div class="reminder-item">
+      <span>⚡</span>
+      <div>
+        <strong>${r.full_name}</strong>
+        <div style="font-size:11px; color:var(--text2);">${r.message}</div>
+      </div>
+    </div>
+  `).join('');
 }
 
 function updateStats() {
   const total = contacts.length;
   const now = new Date();
   const month = contacts.filter(c => {
-    const d = new Date(c.createdAt);
+    const d = new Date(c.created_at);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
-  const sectors = new Set(contacts.map(c => c.sector).filter(Boolean)).size;
 
   document.getElementById('stat-total').textContent = total;
   document.getElementById('stat-month').textContent = month;
-  document.getElementById('stat-sectors').textContent = sectors;
-
-  const sumTotal = document.getElementById('sum-total');
-  if (sumTotal) {
-    sumTotal.textContent = total;
-    document.getElementById('sum-business').textContent =
-      contacts.filter(c => c.category === 'İş görüşmesi').length;
-    document.getElementById('sum-sectors').textContent = sectors;
-  }
+  document.getElementById('sum-total').textContent = total;
+  document.getElementById('sum-business').textContent = contacts.filter(c => c.category === 'İş görüşmesi').length;
 }
 
 function renderContacts(list) {
@@ -105,22 +222,23 @@ function renderContacts(list) {
 
   empty.style.display = 'none';
   container.innerHTML = list.map(c => {
-    const col = getAvatarStyle(c.name);
-    const initials = getInitials(c.name);
+    const col = getAvatarStyle(c.full_name);
+    const initials = getInitials(c.full_name);
     const tagClass = getCategoryTagClass(c.category);
     return `
       <div class="p-card" data-id="${c.id}">
         <div class="p-card-top">
           <div class="avatar" style="background:${col.bg}; color:${col.color};">${initials}</div>
           <div style="flex:1; min-width:0;">
-            <div class="p-name">${c.name || ''}</div>
-            <div class="p-co">${c.company || ''}</div>
+            <div class="p-name">${c.full_name || ''}</div>
+            <div class="p-co">${c.company_name || ''}</div>
           </div>
           <div class="p-arrow">›</div>
         </div>
         <div class="p-tags">
           ${c.category ? `<span class="tag ${tagClass}">${c.category}</span>` : ''}
           ${c.sector ? `<span class="tag tag-gray">${c.sector}</span>` : ''}
+          ${c.next_action_date ? `<span class="tag tag-amber">⚡ Takip var</span>` : ''}
         </div>
       </div>
     `;
@@ -136,28 +254,27 @@ function filterAndRender() {
   const searchEl = document.getElementById('search-input');
   const search = searchEl ? searchEl.value.toLowerCase() : '';
 
-  if (activeFilter !== 'all') {
-    list = list.filter(c => c.category === activeFilter);
-  }
-  if (search) {
-    list = list.filter(c =>
-      (c.name || '').toLowerCase().includes(search) ||
-      (c.company || '').toLowerCase().includes(search) ||
-      (c.sector || '').toLowerCase().includes(search)
-    );
-  }
+  if (activeFilter !== 'all') list = list.filter(c => c.category === activeFilter);
+  if (search) list = list.filter(c =>
+    (c.full_name || '').toLowerCase().includes(search) ||
+    (c.company_name || '').toLowerCase().includes(search) ||
+    (c.sector || '').toLowerCase().includes(search)
+  );
   renderContacts(list);
   updateStats();
 }
 
+// =====================
+// DETAY
+// =====================
 function openDetail(id) {
   const c = contacts.find(x => x.id === id);
   if (!c) return;
   currentDetailId = id;
 
-  document.getElementById('detail-avatar').textContent = getInitials(c.name);
-  document.getElementById('detail-name').textContent = c.name || '';
-  document.getElementById('detail-sub').textContent = [c.title, c.company].filter(Boolean).join(' · ');
+  document.getElementById('detail-avatar').textContent = getInitials(c.full_name);
+  document.getElementById('detail-name').textContent = c.full_name || '';
+  document.getElementById('detail-sub').textContent = [c.title, c.company_name].filter(Boolean).join(' · ');
 
   const tagWrap = document.getElementById('detail-tag-wrap');
   tagWrap.innerHTML = c.category
@@ -179,26 +296,30 @@ function openDetail(id) {
     <div class="info-row">
       <div class="info-icon">${r.icon}</div>
       <span class="info-lbl">${r.lbl}</span>
-      ${r.href
-        ? `<a class="info-val lnk" href="${r.href}">${r.val}</a>`
-        : `<span class="info-val">${r.val}</span>`}
+      ${r.href ? `<a class="info-val lnk" href="${r.href}">${r.val}</a>` : `<span class="info-val">${r.val}</span>`}
     </div>
   `).join('');
 
   const noteCard = document.getElementById('detail-note-card');
-  if (c.note) {
-    noteCard.style.display = 'block';
-    document.getElementById('detail-note').textContent = c.note;
-  } else {
-    noteCard.style.display = 'none';
-  }
+  if (c.notes) { noteCard.style.display = 'block'; document.getElementById('detail-note').textContent = c.notes; }
+  else { noteCard.style.display = 'none'; }
+
+  const actionCard = document.getElementById('detail-action-card');
+  if (c.next_action) {
+    actionCard.style.display = 'block';
+    document.getElementById('detail-action').textContent = c.next_action;
+    document.getElementById('detail-action-date').textContent = c.next_action_date ? `📅 ${new Date(c.next_action_date).toLocaleDateString('tr-TR')}` : '';
+  } else { actionCard.style.display = 'none'; }
 
   showScreen('screen-detail');
 }
 
+// =====================
+// FORM
+// =====================
 function fillForm(data) {
-  document.getElementById('f-name').value    = data.name    || '';
-  document.getElementById('f-company').value = data.company || '';
+  document.getElementById('f-name').value    = data.name || data.full_name || '';
+  document.getElementById('f-company').value = data.company || data.company_name || '';
   document.getElementById('f-title').value   = data.title   || '';
   document.getElementById('f-phone').value   = data.phone   || '';
   document.getElementById('f-gsm').value     = data.gsm     || '';
@@ -211,8 +332,8 @@ function fillForm(data) {
 
 function readForm() {
   return {
-    name:    document.getElementById('f-name').value.trim(),
-    company: document.getElementById('f-company').value.trim(),
+    full_name: document.getElementById('f-name').value.trim(),
+    company_name: document.getElementById('f-company').value.trim(),
     title:   document.getElementById('f-title').value.trim(),
     phone:   document.getElementById('f-phone').value.trim(),
     gsm:     document.getElementById('f-gsm').value.trim(),
@@ -224,18 +345,17 @@ function readForm() {
   };
 }
 
+// =====================
+// KAMERA
+// =====================
 async function startCamera(videoId) {
   stopAllCameras();
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' } }
-    });
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
     const video = document.getElementById(videoId);
     video.srcObject = cameraStream;
     await video.play();
-  } catch (e) {
-    showToast('Kamera açılamadı');
-  }
+  } catch (e) { showToast('Kamera açılamadı'); }
 }
 
 function resizeImage(dataUrl, maxW, quality) {
@@ -244,7 +364,7 @@ function resizeImage(dataUrl, maxW, quality) {
     img.onload = () => {
       const ratio = Math.min(maxW / img.width, 1);
       const canvas = document.createElement('canvas');
-      canvas.width  = Math.round(img.width  * ratio);
+      canvas.width = Math.round(img.width * ratio);
       canvas.height = Math.round(img.height * ratio);
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL('image/jpeg', quality || 0.75));
@@ -256,7 +376,6 @@ function resizeImage(dataUrl, maxW, quality) {
 async function sendToAI(dataUrl) {
   const resized = await resizeImage(dataUrl, 1000, 0.75);
   const base64 = resized.split(',')[1];
-
   document.getElementById('ocr-loading').style.display = 'block';
   showScreen('screen-camera');
 
@@ -266,19 +385,13 @@ async function sendToAI(dataUrl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64: base64 })
     });
-
     if (!response.ok) throw new Error('Sunucu hatası: ' + response.status);
-
     const parsed = await response.json();
-    console.log('AI:', parsed);
-
     fillForm(parsed);
     document.getElementById('ocr-loading').style.display = 'none';
     document.getElementById('ocr-banner').textContent = '✦ AI okudu — bilgileri kontrol edip onaylayın';
     showScreen('screen-verify');
-
   } catch (e) {
-    console.error('Hata:', e);
     document.getElementById('ocr-loading').style.display = 'none';
     showToast('Hata: ' + e.message);
     fillForm({});
@@ -286,34 +399,58 @@ async function sendToAI(dataUrl) {
   }
 }
 
-function saveContact(note, category) {
+// =====================
+// AI NOT ANALİZİ
+// =====================
+async function analyzeNote(note) {
+  if (!note || note.length < 10) return;
+  try {
+    const res = await fetch('https://kartcrm.vercel.app/api/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: null,
+        textOnly: true,
+        prompt: `Bu iş notunu analiz et ve takip tarihi öner. NOT: "${note}". Sadece JSON döndür: {"next_action":"yapılacak iş","suggested_date":"YYYY-MM-DD veya null","suggestion":"kullanıcıya öneri mesajı"}`
+      })
+    });
+  } catch(e) {}
+}
+
+// =====================
+// KAYDET
+// =====================
+async function saveContact(notes, category) {
   const formData = readForm();
-  if (editMode && currentDetailId) {
-    const idx = contacts.findIndex(x => x.id === currentDetailId);
-    if (idx !== -1) contacts[idx] = { ...contacts[idx], ...formData, note, category };
-    editMode = false;
-  } else {
-    contacts.unshift({ id: Date.now().toString(), ...formData, note, category, createdAt: new Date().toISOString() });
-  }
-  saveContacts();
-  filterAndRender();
+  const nextAction = document.getElementById('f-next-action').value.trim();
+  const nextDate = document.getElementById('f-next-date').value;
+
+  const payload = { ...formData, notes, category, next_action: nextAction, next_action_date: nextDate || null };
+
+  const data = await apiPost('/api/contacts', payload);
+  if (!data || data.error) { showToast('Kayıt hatası: ' + (data?.error || '')); return; }
+
+  await loadContacts();
   showToast('✓ Kaydedildi');
   showScreen('screen-home');
   selectedCategory = '';
 }
 
+// =====================
+// EXPORT
+// =====================
 function exportExcel() {
   if (!contacts.length) { showToast('Henüz kişi yok'); return; }
   const rows = contacts.map(c => ({
-    'Ad Soyad': c.name||'', 'Firma': c.company||'', 'Unvan': c.title||'',
-    'Telefon': c.phone||'', 'GSM': c.gsm||'', 'Fax': c.fax||'', 'E-posta': c.email||'',
-    'Web sitesi': c.web||'', 'Adres': c.address||'', 'Sektör': c.sector||'',
-    'Kategori': c.category||'', 'Not': c.note||'',
-    'Tarih': c.createdAt ? new Date(c.createdAt).toLocaleDateString('tr-TR') : '',
+    'Ad Soyad': c.full_name||'', 'Firma': c.company_name||'', 'Unvan': c.title||'',
+    'Telefon': c.phone||'', 'GSM': c.gsm||'', 'Fax': c.fax||'',
+    'E-posta': c.email||'', 'Web': c.web||'', 'Adres': c.address||'',
+    'Sektör': c.sector||'', 'Kategori': c.category||'', 'Not': c.notes||'',
+    'Sonraki Aksiyon': c.next_action||'', 'Takip Tarihi': c.next_action_date||'',
+    'Eklenme': c.created_at ? new Date(c.created_at).toLocaleDateString('tr-TR') : '',
   }));
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{wch:20},{wch:22},{wch:18},{wch:16},{wch:14},{wch:26},{wch:22},{wch:28},{wch:14},{wch:14},{wch:40},{wch:14}];
   XLSX.utils.book_append_sheet(wb, ws, 'Kişiler');
   XLSX.writeFile(wb, 'KartCRM_Kisiler.xlsx');
   showToast('✓ Excel indirildi');
@@ -321,28 +458,88 @@ function exportExcel() {
 
 function exportPDF() {
   if (!contacts.length) { showToast('Henüz kişi yok'); return; }
-  const rows = contacts.map(c => `<tr><td>${c.name||''}</td><td>${c.company||''}</td><td>${c.title||''}</td><td>${c.phone||''}</td><td>${c.email||''}</td><td>${c.web||''}</td><td>${c.sector||''}</td><td>${c.category||''}</td><td>${c.note||''}</td></tr>`).join('');
-  const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:10px;padding:20px;}h1{color:#4B5FFA;}table{width:100%;border-collapse:collapse;}th{background:#4B5FFA;color:#fff;padding:7px 5px;text-align:left;}td{padding:6px 5px;border-bottom:1px solid #EEF0F8;}tr:nth-child(even) td{background:#F4F5FB;}</style></head><body><h1>KartCRM — Kişi Listesi</h1><p>${contacts.length} kişi · ${new Date().toLocaleDateString('tr-TR')}</p><table><thead><tr><th>Ad Soyad</th><th>Firma</th><th>Unvan</th><th>Telefon</th><th>E-posta</th><th>Web</th><th>Sektör</th><th>Kategori</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+  const rows = contacts.map(c => `<tr><td>${c.full_name||''}</td><td>${c.company_name||''}</td><td>${c.phone||''}</td><td>${c.email||''}</td><td>${c.sector||''}</td><td>${c.category||''}</td><td>${c.notes||''}</td></tr>`).join('');
+  const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;font-size:10px;padding:20px;}h1{color:#4B5FFA;}table{width:100%;border-collapse:collapse;}th{background:#4B5FFA;color:#fff;padding:7px 5px;text-align:left;}td{padding:6px 5px;border-bottom:1px solid #EEF0F8;}tr:nth-child(even) td{background:#F4F5FB;}</style></head><body><h1>KartCRM — Kişi Listesi</h1><p>${contacts.length} kişi · ${new Date().toLocaleDateString('tr-TR')}</p><table><thead><tr><th>Ad Soyad</th><th>Firma</th><th>Telefon</th><th>E-posta</th><th>Sektör</th><th>Kategori</th><th>Not</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
   const win = window.open('', '_blank');
   if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 600); }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  filterAndRender();
+// =====================
+// PUSH BİLDİRİM
+// =====================
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) { showToast('Tarayıcı bildirimleri desteklemiyor'); return; }
+  const permission = await Notification.requestPermission();
+  if (permission === 'granted') {
+    document.getElementById('notif-status').textContent = 'Aktif ✓';
+    document.getElementById('notif-arrow').textContent = '✓';
+    showToast('✓ Bildirimler aktif');
+    new Notification('KartCRM', { body: 'Bildirimler başarıyla etkinleştirildi!', icon: '/icon-192.png' });
+  } else {
+    document.getElementById('notif-status').textContent = 'Reddedildi';
+    showToast('Bildirim izni reddedildi');
+  }
+}
 
+function updateNotifStatus() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    document.getElementById('notif-status').textContent = 'Aktif ✓';
+    document.getElementById('notif-arrow').textContent = '✓';
+  } else if (Notification.permission === 'denied') {
+    document.getElementById('notif-status').textContent = 'Reddedildi';
+  }
+}
+
+// =====================
+// INIT
+// =====================
+function initApp() {
+  if (!authToken || !currentUser) { showScreen('screen-auth'); return; }
+
+  const name = currentUser.full_name || currentUser.email.split('@')[0];
+  document.getElementById('greeting-text').textContent = `Merhaba, ${name} 👋`;
+  document.getElementById('profile-name').textContent = currentUser.full_name || '-';
+  document.getElementById('profile-email').textContent = currentUser.email || '-';
+  document.getElementById('profile-avatar').textContent = getInitials(currentUser.full_name || currentUser.email);
+
+  updateNotifStatus();
+  showScreen('screen-home');
+  loadContacts();
+}
+
+// =====================
+// EVENT LISTENERS
+// =====================
+document.addEventListener('DOMContentLoaded', () => {
+  // Auth check
+  if (authToken && currentUser) { initApp(); }
+  else { showScreen('screen-auth'); }
+
+  // Login / Register
+  document.getElementById('btn-login').addEventListener('click', login);
+  document.getElementById('btn-register').addEventListener('click', register);
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+  // Logout
+  document.getElementById('btn-logout').addEventListener('click', logout);
+  document.getElementById('btn-logout2').addEventListener('click', logout);
+
+  // FAB
   document.getElementById('fab-add').addEventListener('click', () => {
     editMode = false; fillForm({}); showScreen('screen-add');
   });
 
+  // Search
   document.getElementById('btn-search-toggle').addEventListener('click', () => {
     const bar = document.getElementById('search-bar');
     const hidden = !bar.style.display || bar.style.display === 'none';
     bar.style.display = hidden ? 'flex' : 'none';
     if (hidden) document.getElementById('search-input').focus();
   });
-
   document.getElementById('search-input').addEventListener('input', filterAndRender);
 
+  // Filter chips
   document.getElementById('filter-chips').addEventListener('click', e => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
@@ -352,28 +549,25 @@ document.addEventListener('DOMContentLoaded', () => {
     filterAndRender();
   });
 
+  // Add options
   document.getElementById('opt-camera').addEventListener('click', async () => {
-    showScreen('screen-camera');
-    await startCamera('camera-video');
+    showScreen('screen-camera'); await startCamera('camera-video');
   });
-
   document.getElementById('opt-qr').addEventListener('click', async () => {
-    showScreen('screen-qr');
-    await startCamera('qr-video');
+    showScreen('screen-camera'); await startCamera('camera-video');
   });
-
   document.getElementById('opt-manual').addEventListener('click', () => {
     fillForm({});
     document.getElementById('ocr-banner').textContent = '✏️ Bilgileri manuel olarak girin';
     showScreen('screen-verify');
   });
 
+  // Camera
   document.getElementById('btn-capture').addEventListener('click', () => {
     const video = document.getElementById('camera-video');
     const canvas = document.getElementById('camera-canvas');
     if (!video.videoWidth) { showToast('Kamera hazır değil'); return; }
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     stopAllCameras();
     sendToAI(canvas.toDataURL('image/jpeg', 0.9));
@@ -388,6 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.target.value = '';
   });
 
+  // Verify
   document.getElementById('btn-verify-next').addEventListener('click', () => {
     const name = document.getElementById('f-name').value.trim();
     const errEl = document.getElementById('verify-error');
@@ -395,10 +590,13 @@ document.addEventListener('DOMContentLoaded', () => {
     errEl.style.display = 'none';
     document.querySelectorAll('#note-chips .chip').forEach(c => c.classList.remove('on'));
     document.getElementById('f-note').value = '';
+    document.getElementById('f-next-action').value = '';
+    document.getElementById('f-next-date').value = '';
     selectedCategory = '';
     showScreen('screen-note');
   });
 
+  // Note chips
   document.getElementById('note-chips').addEventListener('click', e => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
@@ -407,44 +605,54 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedCategory = chip.dataset.cat;
   });
 
+  // Note auto-analyze
+  document.getElementById('f-note').addEventListener('blur', () => {
+    const note = document.getElementById('f-note').value.trim();
+    analyzeNote(note);
+  });
+
+  // Save
   document.getElementById('btn-save').addEventListener('click', () => {
     saveContact(document.getElementById('f-note').value.trim(), selectedCategory);
   });
-
   document.getElementById('btn-skip-note').addEventListener('click', () => {
     saveContact('', selectedCategory);
   });
 
-  document.getElementById('btn-delete').addEventListener('click', () => {
+  // Delete
+  document.getElementById('btn-delete').addEventListener('click', async () => {
     if (!currentDetailId) return;
     if (!confirm('Bu kişiyi silmek istiyor musunuz?')) return;
-    contacts = contacts.filter(c => c.id !== currentDetailId);
-    saveContacts(); filterAndRender();
+    await apiDelete(`/api/contacts?id=${currentDetailId}`);
+    await loadContacts();
     showToast('🗑 Silindi');
     showScreen('screen-home');
   });
 
+  // Edit
   document.getElementById('btn-edit').addEventListener('click', () => {
     const c = contacts.find(x => x.id === currentDetailId);
     if (!c) return;
     editMode = true;
-    fillForm(c);
+    fillForm({ ...c, name: c.full_name, company: c.company_name });
     document.getElementById('ocr-banner').textContent = '✏️ Bilgileri düzenleyin';
     showScreen('screen-verify');
   });
 
+  // Export
   document.getElementById('btn-export-excel').addEventListener('click', exportExcel);
   document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
 
+  // Notification
+  document.getElementById('btn-notif-toggle').addEventListener('click', requestNotificationPermission);
+
+  // Back buttons
   document.querySelectorAll('[data-back]').forEach(btn => {
     btn.addEventListener('click', () => { stopAllCameras(); showScreen(btn.dataset.back); });
   });
 
+  // Nav
   document.querySelectorAll('[data-screen]').forEach(btn => {
     btn.addEventListener('click', () => showScreen(btn.dataset.screen));
   });
 });
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
