@@ -140,7 +140,7 @@ window.toggleMic = async function() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
   recognition.lang = 'tr-TR';
-  recognition.continuous = true;
+  recognition.continuous = false;
   recognition.interimResults = true;
 
   const textarea = document.getElementById('f-notes');
