@@ -469,17 +469,11 @@ function renderStep3() {
   document.getElementById('btn-step3-skip').addEventListener('click', nextMeetingStep);
 }
 
-async function toggleMic() {
+function toggleMic() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     showToast('Tarayıcınız ses tanımayı desteklemiyor'); return;
   }
   if (isRecording) { if (recognition) recognition.stop(); return; }
-
-  try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch(e) {
-    showToast('Mikrofon izni gerekli'); return;
-  }
 
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
