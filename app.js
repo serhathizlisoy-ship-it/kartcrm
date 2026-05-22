@@ -230,15 +230,7 @@ function renderContacts() {
 
 function updateStats() {
   var total = contacts.length;
-  var now = new Date();
-  var month = contacts.filter(function(c) {
-    var d = new Date(c.created_at);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
-  var withReminders = contacts.filter(function(c) { return c.next_action_date; }).length;
   document.getElementById('stat-total').textContent = total;
-  document.getElementById('stat-month').textContent = month;
-  document.getElementById('stat-reminders').textContent = withReminders;
   var sumTotal = document.getElementById('sum-total');
   var sumBusiness = document.getElementById('sum-business');
   if (sumTotal) sumTotal.textContent = total;
