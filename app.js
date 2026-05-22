@@ -755,12 +755,18 @@ async function loadReminders() {
   if (!data) return;
   var bar = document.getElementById('reminders-bar');
   var list = document.getElementById('reminders-list');
-  var statEl = document.getElementById('stat-reminders');
-  if (statEl) statEl.textContent = data.length;
+  var remCount = document.getElementById('rem-count');
   if (data.length === 0) { if (bar) bar.style.display = 'none'; return; }
   if (bar) bar.style.display = 'block';
+  if (remCount) remCount.textContent = data.length;
   if (list) list.innerHTML = data.map(function(r) {
-    return '<div class="reminder-item"><div class="rem-dot"></div><div><strong>' + (r.full_name || '') + '</strong><div style="font-size:11px;color:var(--text2);">' + r.message + '</div></div></div>';
+    var isUrgent = r.reminder_date && new Date(r.reminder_date) <= new Date();
+    return '<div class="reminder-item" style="border-left-color:' + (isUrgent ? '#EF4444' : '#F59E0B') + ';">' +
+      '<div class="rem-dot' + (isUrgent ? ' urgent' : '') + '"></div>' +
+      '<div>' +
+        '<div class="rem-name">' + (r.full_name || '') + '</div>' +
+        '<div class="rem-text">' + r.message + (r.reminder_date ? ' — ' + formatDate(r.reminder_date) : '') + '</div>' +
+      '</div></div>';
   }).join('');
 }
 
