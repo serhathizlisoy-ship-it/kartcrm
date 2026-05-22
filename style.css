@@ -579,13 +579,6 @@ html, body {
   pointer-events: none;
   z-index: 0;
 }
-.detail-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 24px;
-}
 .detail-topbar {
   display: flex;
   align-items: center;
@@ -806,6 +799,91 @@ html, body {
 .rem-dot.urgent { background: #EF4444; }
 .rem-name { font-size: 13px; font-weight: 700; color: var(--text); }
 .rem-text { font-size: 11px; color: var(--text3); font-weight: 500; margin-top: 1px; }
+
+/* HATIRLATMA GRUPLAMA */
+#reminders-list {
+  max-height: 240px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px;
+}
+.rem-group {
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  border-left: 3px solid #F59E0B;
+  overflow: hidden;
+}
+.rem-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.rem-group-arrow {
+  font-size: 10px;
+  color: var(--text3);
+  width: 12px;
+  flex-shrink: 0;
+}
+.rem-group-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+.rem-group-badge {
+  background: #FEF3C7;
+  color: #92400E;
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.rem-items {
+  border-top: 1px solid #F3F4F6;
+  padding: 6px 12px 8px;
+}
+.rem-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+.rem-item-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #F59E0B;
+  flex-shrink: 0;
+}
+.rem-item-text {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text2);
+  font-weight: 500;
+  line-height: 1.35;
+}
+.rem-item-tick {
+  background: #ECFDF5;
+  color: #059669;
+  border: none;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+.rem-item-tick:active { background: #D1FAE5; }
 
 /* PROFILE */
 .profile-card {

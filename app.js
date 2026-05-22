@@ -86,6 +86,16 @@ async function apiDelete(path) {
   return res.json();
 }
 
+async function apiPut(path, body) {
+  var res = await fetch(path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+    body: JSON.stringify(body || {})
+  });
+  if (res.status === 401) { logout(); return null; }
+  return res.json();
+}
+
 window.switchTab = function(tab) {
   document.getElementById('form-login').style.display = tab === 'login' ? 'block' : 'none';
   document.getElementById('form-register').style.display = tab === 'register' ? 'block' : 'none';
@@ -742,25 +752,83 @@ function exportExcel() {
 }
 
 // ---- REMINDERS ----
+var _remindersData = [];
+var _remindersOpen = {};
+
 async function loadReminders() {
   var data = await apiGet('/api/reminders');
   if (!data) return;
+  _remindersData = data;
+  renderReminders();
+}
+
+function renderReminders() {
+  var data = _remindersData || [];
   var bar = document.getElementById('reminders-bar');
   var list = document.getElementById('reminders-list');
   var remCount = document.getElementById('rem-count');
   if (data.length === 0) { if (bar) bar.style.display = 'none'; return; }
   if (bar) bar.style.display = 'block';
   if (remCount) remCount.textContent = data.length;
-  if (list) list.innerHTML = data.map(function(r) {
-    var isUrgent = r.reminder_date && new Date(r.reminder_date) <= new Date();
-    return '<div class="reminder-item" style="border-left-color:' + (isUrgent ? '#EF4444' : '#F59E0B') + ';">' +
-      '<div class="rem-dot' + (isUrgent ? ' urgent' : '') + '"></div>' +
-      '<div>' +
-        '<div class="rem-name">' + (r.full_name || '') + '</div>' +
-        '<div class="rem-text">' + r.message + (r.reminder_date ? ' — ' + formatDate(r.reminder_date) : '') + '</div>' +
-      '</div></div>';
+
+  // Kişiye göre grupla
+  var groups = {};
+  var order = [];
+  data.forEach(function(r) {
+    var key = r.person_id || ('_' + (r.full_name || ''));
+    if (!groups[key]) {
+      groups[key] = { person_id: r.person_id, name: r.full_name || '(İsimsiz)', items: [] };
+      order.push(key);
+    }
+    groups[key].items.push(r);
+  });
+
+  if (!list) return;
+  list.innerHTML = order.map(function(key) {
+    var g = groups[key];
+    var isOpen = !!_remindersOpen[key];
+    var arrow = isOpen ? '▼' : '▶';
+    var itemsHtml = '';
+    if (isOpen) {
+      itemsHtml = '<div class="rem-items">' + g.items.map(function(r) {
+        var dateTxt = r.reminder_date ? ' — ' + formatDate(r.reminder_date) : '';
+        return '<div class="rem-item-row">' +
+          '<div class="rem-item-dot"></div>' +
+          '<div class="rem-item-text">' + (r.message || '') + dateTxt + '</div>' +
+          '<button class="rem-item-tick" onclick="markReminderDone(\'' + r.id + '\', event)" title="Tamamlandı">✓</button>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+    return '<div class="rem-group">' +
+      '<div class="rem-group-head" onclick="toggleReminderGroup(\'' + key + '\')">' +
+        '<span class="rem-group-arrow">' + arrow + '</span>' +
+        '<span class="rem-group-name">' + g.name + '</span>' +
+        '<span class="rem-group-badge">' + g.items.length + '</span>' +
+      '</div>' +
+      itemsHtml +
+    '</div>';
   }).join('');
 }
+
+window.toggleReminderGroup = function(key) {
+  _remindersOpen[key] = !_remindersOpen[key];
+  renderReminders();
+};
+
+window.markReminderDone = async function(id, ev) {
+  if (ev) ev.stopPropagation();
+  // Optimistik UI: hemen kaldır
+  _remindersData = _remindersData.filter(function(r) { return String(r.id) !== String(id); });
+  renderReminders();
+  try {
+    await apiPut('/api/reminders?id=' + id);
+    showToast('✓ Tamamlandı');
+  } catch (e) {
+    showToast('Hata oluştu');
+    // Geri yükle
+    loadReminders();
+  }
+};
 
 // ---- NOTIFICATIONS ----
 async function requestNotificationPermission() {
