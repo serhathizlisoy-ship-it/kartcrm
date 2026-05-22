@@ -81,6 +81,27 @@ export default async function handler(req, res) {
     }
   }
 
+  if (req.method === 'PUT') {
+    const { id } = req.query;
+    const { full_name, company_name, title, phone, gsm, fax, email, web, address, sector } = req.body;
+    try {
+      if (full_name) {
+        await sql`UPDATE persons SET full_name = ${full_name} WHERE id = ${id} AND user_id = ${user.userId}`;
+      }
+      const existing = await sql`SELECT id FROM person_companies WHERE person_id = ${id} AND is_primary = true LIMIT 1`;
+      if (existing.length > 0) {
+        await sql`UPDATE person_companies SET title=${title||''}, phone=${phone||''}, gsm=${gsm||''}, fax=${fax||''}, email=${email||''} WHERE person_id = ${id} AND is_primary = true`;
+        if (company_name) {
+          const [pc] = await sql`SELECT company_id FROM person_companies WHERE person_id = ${id} AND is_primary = true LIMIT 1`;
+          if (pc) await sql`UPDATE companies SET name=${company_name}, sector=${sector||''}, address=${address||''}, website=${web||''} WHERE id = ${pc.company_id}`;
+        }
+      }
+      return res.status(200).json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   if (req.method === 'DELETE') {
     const { id } = req.query;
     try {

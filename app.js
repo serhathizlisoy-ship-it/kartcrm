@@ -281,6 +281,37 @@ function openDetail(id) {
     newBtn.addEventListener('click', function() { startMeetingFlow(c.id, c.full_name, c.company_id); });
   }
 
+  // Düzenle butonu
+  var btnEdit = document.getElementById('btn-edit');
+  if (btnEdit) {
+    var newEdit = btnEdit.cloneNode(true);
+    btnEdit.parentNode.replaceChild(newEdit, btnEdit);
+    newEdit.addEventListener('click', function() {
+      fillVerifyForm({
+        full_name: c.full_name, company_name: c.company_name,
+        title: c.title, phone: c.phone, gsm: c.gsm, fax: c.fax,
+        email: c.email, web: c.web, address: c.address, sector: c.sector
+      });
+      document.getElementById('ocr-banner').textContent = 'Bilgileri düzenleyin';
+      window._editingContactId = c.id;
+      showScreen('screen-verify');
+    });
+  }
+
+  // Sil butonu (topbar)
+  var btnDelTop = document.getElementById('btn-delete-top');
+  if (btnDelTop) {
+    var newDel = btnDelTop.cloneNode(true);
+    btnDelTop.parentNode.replaceChild(newDel, btnDelTop);
+    newDel.addEventListener('click', async function() {
+      if (!confirm(c.full_name + ' silinsin mi?')) return;
+      await apiDelete('/api/contacts?id=' + c.id);
+      await loadContacts();
+      showToast('Silindi');
+      showScreen('screen-home');
+    });
+  }
+
   loadMeetingCards(c.id);
   showScreen('screen-detail');
 }
@@ -777,7 +808,7 @@ function initApp() {
   if (!authToken || !currentUser) { showScreen('screen-auth'); return; }
   var name = currentUser.full_name || currentUser.email.split('@')[0];
   var greetEl = document.getElementById('greeting-text');
-  if (greetEl) greetEl.textContent = 'Merhaba, ' + name + ' 👋';
+  if (greetEl) greetEl.textContent = 'Merhaba, ' + name;
   var profName = document.getElementById('profile-name');
   var profEmail = document.getElementById('profile-email');
   var profAv = document.getElementById('profile-avatar');
@@ -862,6 +893,23 @@ document.addEventListener('DOMContentLoaded', function() {
     var formData = readForm();
     if (!formData.full_name) { document.getElementById('verify-error').style.display = 'block'; return; }
     document.getElementById('verify-error').style.display = 'none';
+
+    // Düzenleme modu
+    if (window._editingContactId) {
+      var res = await fetch('/api/contacts?id=' + window._editingContactId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+        body: JSON.stringify(formData)
+      });
+      var data = await res.json();
+      window._editingContactId = null;
+      await loadContacts();
+      showToast('✓ Güncellendi');
+      showScreen('screen-home');
+      return;
+    }
+
+    // Yeni kişi
     var data = await apiPost('/api/contacts', formData);
     if (data && !data.error) {
       await loadContacts();
@@ -872,7 +920,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  document.getElementById('btn-delete').addEventListener('click', async function() {
+  document.getElementById('btn-delete') && document.getElementById('btn-delete').addEventListener('click', async function() {
+    if (!window._currentDetailId) return;
+    if (!confirm('Bu kişiyi silmek istiyor musunuz?')) return;
+    await apiDelete('/api/contacts?id=' + window._currentDetailId);
+    await loadContacts();
+    showToast('Silindi');
+    showScreen('screen-home');
+  });
+
+  document.getElementById('btn-delete-top') && document.getElementById('btn-delete-top').addEventListener('click', async function() {
     if (!window._currentDetailId) return;
     if (!confirm('Bu kişiyi silmek istiyor musunuz?')) return;
     await apiDelete('/api/contacts?id=' + window._currentDetailId);
