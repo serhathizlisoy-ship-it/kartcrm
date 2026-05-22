@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         FROM reminders r
         LEFT JOIN persons p ON p.id = r.person_id
         WHERE r.user_id = ${user.userId}
-        AND r.reminder_date <= ${today}
+        AND r.reminder_date >= ${today}
         AND r.is_sent = false
         ORDER BY r.reminder_date ASC
       `;
