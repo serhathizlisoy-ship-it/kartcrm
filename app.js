@@ -805,9 +805,8 @@ window.deleteCurrentContact = async function() {
   showScreen('screen-home');
 };
 
-window.editCurrentContact = function(btn) {
-  var contactId = (btn && btn.getAttribute('data-contact-id')) || window._currentDetailId;
-  var c = contacts.find(function(x) { return x.id === contactId; });
+window.editCurrentContact = function() {
+  var c = contacts.find(function(x) { return x.id === window._currentDetailId; });
   if (!c) return;
   fillVerifyForm({
     full_name: c.full_name, company_name: c.company_name,
