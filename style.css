@@ -992,7 +992,7 @@ html, body {
 
 /* COMPANY GROUPS */
 .company-group { margin-bottom: 12px; }
-.company-group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface2); border-radius: 12px 12px 0 0; cursor: pointer; }
+.company-group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface2); border-radius: 12px 12px 0 0; cursor: pointer; position: sticky; top: 0; z-index: 5; }
 .company-group.collapsed .company-group-list { display: none; }
 .company-group.collapsed .company-group-header { border-radius: 12px; }
 .company-group-name { font-size: 13px; font-weight: 800; color: var(--text); }
