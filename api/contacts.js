@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+﻿import { neon } from '@neondatabase/serverless';
 import { jwtVerify } from 'jose';
 
 async function getUser(req) {
@@ -15,61 +15,25 @@ async function getUser(req) {
 export default async function handler(req, res) {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Giris gerekli' });
-
   const sql = neon(process.env.DATABASE_URL);
 
   if (req.method === 'GET') {
     try {
-      const persons = await sql`SELECT id, full_name, created_at FROM persons WHERE user_id = ${user.userId} ORDER BY created_at DESC`;
-      const result = [];
-      for (const p of persons) {
-        const [pc] = await sql`SELECT pc.title, pc.phone, pc.gsm, pc.fax, pc.email, c.website as web, c.name as company_name, c.sector, c.address FROM person_companies pc JOIN companies c ON c.id = pc.company_id WHERE pc.person_id = ${p.id} AND pc.is_primary = true LIMIT 1`;
-        const [m] = await sql`SELECT category, notes, next_action, next_action_date FROM meetings WHERE person_id = ${p.id} ORDER BY created_at DESC LIMIT 1`;
-        result.push({ ...p, ...(pc || {}), ...(m || {}) });
-      }
-      return res.status(200).json(result);
-    } catch (e) {
-      return res.status(500).json({ error: e.message });
-    }
-  }
-
-  if (req.method === 'POST') {
-    const { full_name, company_name, title, phone, gsm, fax, email, web, address, sector, notes, category, next_action, next_action_date } = req.body;
-    if (!full_name) return res.status(40
-
-
-
-$content = @'
-import { neon } from '@neondatabase/serverless';
-import { jwtVerify } from 'jose';
-
-async function getUser(req) {
-  const auth = req.headers.authorization;
-  if (!auth) return null;
-  const token = auth.replace('Bearer ', '');
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'kartcrm-secret-2024');
-  try {
-    const { payload } = await jwtVerify(token, secret);
-    return payload;
-  } catch { return null; }
-}
-
-export default async function handler(req, res) {
-  const user = await getUser(req);
-  if (!user) return res.status(401).json({ error: 'Giris gerekli' });
-
-  const sql = neon(process.env.DATABASE_URL);
-
-  if (req.method === 'GET') {
-    try {
-      const persons = await sql`SELECT id, full_name, created_at FROM persons WHERE user_id = ${user.userId} ORDER BY created_at DESC`;
-      const result = [];
-      for (const p of persons) {
-        const [pc] = await sql`SELECT pc.title, pc.phone, pc.gsm, pc.fax, pc.email, c.website as web, c.name as company_name, c.sector, c.address FROM person_companies pc JOIN companies c ON c.id = pc.company_id WHERE pc.person_id = ${p.id} AND pc.is_primary = true LIMIT 1`;
-        const [m] = await sql`SELECT category, notes, next_action, next_action_date FROM meetings WHERE person_id = ${p.id} ORDER BY created_at DESC LIMIT 1`;
-        result.push({ ...p, ...(pc || {}), ...(m || {}) });
-      }
-      return res.status(200).json(result);
+      const rows = await sql`
+        SELECT p.id, p.full_name, p.created_at,
+          pc.title, pc.phone, pc.gsm, pc.fax, pc.email,
+          c.website as web, c.name as company_name, c.sector, c.address,
+          m.category, m.notes, m.next_action, m.next_action_date
+        FROM persons p
+        LEFT JOIN person_companies pc ON pc.person_id = p.id AND pc.is_primary = true
+        LEFT JOIN companies c ON c.id = pc.company_id
+        LEFT JOIN meetings m ON m.id = (
+          SELECT id FROM meetings WHERE person_id = p.id ORDER BY created_at DESC LIMIT 1
+        )
+        WHERE p.user_id = ${user.userId}
+        ORDER BY p.created_at DESC
+      `;
+      return res.status(200).json(rows);
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
