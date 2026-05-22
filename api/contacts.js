@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       const persons = await sql`SELECT id, full_name, created_at FROM persons WHERE user_id = ${user.userId} ORDER BY created_at DESC`;
       const result = [];
       for (const p of persons) {
-        const [pc] = await sql`SELECT pc.title, pc.phone, pc.gsm, pc.fax, pc.email, pc.web, c.name as company_name, c.sector, c.address FROM person_companies pc JOIN companies c ON c.id = pc.company_id WHERE pc.person_id = ${p.id} AND pc.is_primary = true LIMIT 1`;
+        const [pc] = await sql`SELECT pc.title, pc.phone, pc.gsm, pc.fax, pc.email, c.website as web, c.name as company_name, c.sector, c.address FROM person_companies pc JOIN companies c ON c.id = pc.company_id WHERE pc.person_id = ${p.id} AND pc.is_primary = true LIMIT 1`;
         const [m] = await sql`SELECT category, notes, next_action, next_action_date FROM meetings WHERE person_id = ${p.id} ORDER BY created_at DESC LIMIT 1`;
         result.push({ ...p, ...(pc || {}), ...(m || {}) });
       }
