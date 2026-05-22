@@ -14,7 +14,7 @@
 </head>
 <body>
 
-<!-- SCREEN: GİRİŞ -->
+<!-- AUTH -->
 <div class="screen active" id="screen-auth">
   <div class="auth-container">
     <div class="auth-logo">
@@ -22,45 +22,27 @@
       <div class="auth-logo-text">KartCRM</div>
       <div class="auth-logo-sub">Kişisel iş asistanın</div>
     </div>
-
     <div class="auth-tabs">
       <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Giriş Yap</button>
       <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Kayıt Ol</button>
     </div>
-
     <div id="form-login">
-      <div class="form-group">
-        <label class="form-lbl">E-posta</label>
-        <input class="form-input" type="email" id="login-email" placeholder="ornek@email.com">
-      </div>
-      <div class="form-group">
-        <label class="form-lbl">Şifre</label>
-        <input class="form-input" type="password" id="login-password" placeholder="••••••••">
-      </div>
+      <div class="form-group"><label class="form-lbl">E-posta</label><input class="form-input" type="email" id="login-email" placeholder="ornek@email.com"></div>
+      <div class="form-group"><label class="form-lbl">Şifre</label><input class="form-input" type="password" id="login-password" placeholder="••••••••"></div>
       <div class="auth-error" id="login-error"></div>
       <button class="btn-primary" id="btn-login">Giriş Yap</button>
     </div>
-
     <div id="form-register" style="display:none;">
-      <div class="form-group">
-        <label class="form-lbl">Ad Soyad</label>
-        <input class="form-input" type="text" id="reg-name" placeholder="Adınız Soyadınız">
-      </div>
-      <div class="form-group">
-        <label class="form-lbl">E-posta</label>
-        <input class="form-input" type="email" id="reg-email" placeholder="ornek@email.com">
-      </div>
-      <div class="form-group">
-        <label class="form-lbl">Şifre</label>
-        <input class="form-input" type="password" id="reg-password" placeholder="En az 6 karakter">
-      </div>
+      <div class="form-group"><label class="form-lbl">Ad Soyad</label><input class="form-input" type="text" id="reg-name" placeholder="Adınız Soyadınız"></div>
+      <div class="form-group"><label class="form-lbl">E-posta</label><input class="form-input" type="email" id="reg-email" placeholder="ornek@email.com"></div>
+      <div class="form-group"><label class="form-lbl">Şifre</label><input class="form-input" type="password" id="reg-password" placeholder="En az 6 karakter"></div>
       <div class="auth-error" id="reg-error"></div>
       <button class="btn-primary" id="btn-register">Kayıt Ol</button>
     </div>
   </div>
 </div>
 
-<!-- SCREEN: ANA SAYFA -->
+<!-- ANA SAYFA -->
 <div class="screen" id="screen-home">
   <div class="topbar">
     <div>
@@ -72,70 +54,38 @@
       <button class="icon-btn" id="btn-logout">🚪</button>
     </div>
   </div>
-
-  <!-- Hatırlatmalar -->
   <div id="reminders-bar" style="display:none;">
     <div class="reminders-card" id="reminders-list"></div>
   </div>
-
   <div class="hero-card">
     <div class="hero-stats">
-      <div class="hero-stat">
-        <div class="hero-stat-num" id="stat-total">0</div>
-        <div class="hero-stat-lbl">Toplam kişi</div>
-      </div>
-      <div class="hero-stat">
-        <div class="hero-stat-num" id="stat-month">0</div>
-        <div class="hero-stat-lbl">Bu ay eklenen</div>
-      </div>
-      <div class="hero-stat">
-        <div class="hero-stat-num" id="stat-reminders">0</div>
-        <div class="hero-stat-lbl">Bekleyen takip</div>
-      </div>
+      <div class="hero-stat"><div class="hero-stat-num" id="stat-total">0</div><div class="hero-stat-lbl">Toplam kişi</div></div>
+      <div class="hero-stat"><div class="hero-stat-num" id="stat-month">0</div><div class="hero-stat-lbl">Bu ay</div></div>
+      <div class="hero-stat"><div class="hero-stat-num" id="stat-reminders">0</div><div class="hero-stat-lbl">Bekleyen</div></div>
     </div>
   </div>
-
   <div class="content">
     <div class="search-bar" id="search-bar" style="display:none;">
       <span>🔍</span>
       <input type="text" id="search-input" placeholder="Kişi veya firma ara..." />
     </div>
-
-    <div class="chips-row" id="filter-chips">
-      <span class="chip active" data-filter="all">Tümü</span>
-      <span class="chip" data-filter="İş görüşmesi">İş görüşmesi</span>
-      <span class="chip" data-filter="Toplantı">Toplantı</span>
-      <span class="chip" data-filter="Fuar">Fuar</span>
-      <span class="chip" data-filter="Yemek">Yemek</span>
-      <span class="chip" data-filter="Dernek">Dernek</span>
-    </div>
-
-    <div class="sec-lbl">Kişiler</div>
     <div id="contacts-list">
       <div class="empty-state" id="empty-state">
         <div class="empty-icon">🪪</div>
         <div class="empty-title">Henüz kişi yok</div>
-        <div class="empty-sub">Sağ alttaki + butonuna basarak ilk kişini ekle</div>
+        <div class="empty-sub">+ butonuna basarak ilk kişini ekle</div>
       </div>
     </div>
   </div>
-
   <button class="fab" id="fab-add">+</button>
-
   <div class="nav">
-    <button class="nav-i on" data-screen="screen-home">
-      <div class="nav-dot">⌂</div><span>Kişiler</span>
-    </button>
-    <button class="nav-i" data-screen="screen-export">
-      <div class="nav-dot">↑</div><span>Export</span>
-    </button>
-    <button class="nav-i" onclick="showScreen('screen-profile')">
-      <div class="nav-dot">👤</div><span>Profil</span>
-    </button>
+    <button class="nav-i on" data-screen="screen-home"><div class="nav-dot">⌂</div><span>Kişiler</span></button>
+    <button class="nav-i" data-screen="screen-export"><div class="nav-dot">↑</div><span>Export</span></button>
+    <button class="nav-i" onclick="showScreen('screen-profile')"><div class="nav-dot">👤</div><span>Profil</span></button>
   </div>
 </div>
 
-<!-- SCREEN: KİŞİ EKLE -->
+<!-- KİŞİ EKLE -->
 <div class="screen" id="screen-add">
   <div class="topbar-simple">
     <button class="back-btn" data-back="screen-home">← Geri</button>
@@ -144,33 +94,19 @@
   <div class="content">
     <div class="add-opt" id="opt-camera">
       <div class="add-opt-icon" style="background:#EEF0FF;">📸</div>
-      <div class="add-opt-text">
-        <div class="add-opt-title">Kartvizit Fotoğrafı</div>
-        <div class="add-opt-sub">Kamerayla tara, AI okusun</div>
-      </div>
-      <div class="add-opt-arrow">›</div>
-    </div>
-    <div class="add-opt" id="opt-qr">
-      <div class="add-opt-icon" style="background:#F0FDF4;">📱</div>
-      <div class="add-opt-text">
-        <div class="add-opt-title">QR Kod Okut</div>
-        <div class="add-opt-sub">Kamera ile anında tarama</div>
-      </div>
+      <div class="add-opt-text"><div class="add-opt-title">Kartvizit Fotoğrafı</div><div class="add-opt-sub">Kamerayla tara, AI okusun</div></div>
       <div class="add-opt-arrow">›</div>
     </div>
     <div class="add-opt" id="opt-manual">
       <div class="add-opt-icon" style="background:#FFFBEB;">✏️</div>
-      <div class="add-opt-text">
-        <div class="add-opt-title">Manuel Gir</div>
-        <div class="add-opt-sub">Formu kendin doldur</div>
-      </div>
+      <div class="add-opt-text"><div class="add-opt-title">Manuel Gir</div><div class="add-opt-sub">Formu kendin doldur</div></div>
       <div class="add-opt-arrow">›</div>
     </div>
     <div class="ai-hint">✦ Yapay zeka kartvizitteki tüm bilgileri otomatik okur.</div>
   </div>
 </div>
 
-<!-- SCREEN: KAMERA -->
+<!-- KAMERA -->
 <div class="screen" id="screen-camera">
   <div class="topbar-simple">
     <button class="back-btn" data-back="screen-add">← Geri</button>
@@ -179,21 +115,18 @@
   <div class="content">
     <div class="camera-area">
       <video id="camera-video" autoplay playsinline></video>
-      <div class="camera-corners">
-        <div class="cc tl"></div><div class="cc tr"></div>
-        <div class="cc bl"></div><div class="cc br"></div>
-      </div>
+      <div class="camera-corners"><div class="cc tl"></div><div class="cc tr"></div><div class="cc bl"></div><div class="cc br"></div></div>
       <div class="camera-label">Kartviziti çerçeve içine al</div>
     </div>
     <canvas id="camera-canvas" style="display:none;"></canvas>
     <input type="file" id="file-input" accept="image/*" style="display:none;">
     <button class="btn-primary" id="btn-capture">📸 Fotoğraf Çek</button>
-    <label for="file-input" class="btn-sec" style="display:block;text-align:center;cursor:pointer;padding:13px;border-radius:12px;background:#fff;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;box-shadow:0 2px 8px rgba(75,95,250,0.06);margin-bottom:10px;">🖼 Galeriden Seç</label>
+    <label for="file-input" class="btn-sec" style="display:block;text-align:center;cursor:pointer;padding:13px;border-radius:12px;background:#fff;font-family:Nunito,sans-serif;font-size:14px;font-weight:700;margin-bottom:10px;">🖼 Galeriden Seç</label>
     <div class="ai-hint" id="ocr-loading" style="display:none;">⏳ AI kartviziti okuyor...</div>
   </div>
 </div>
 
-<!-- SCREEN: BİLGİLERİ DOĞRULA -->
+<!-- BİLGİLERİ DOĞRULA -->
 <div class="screen" id="screen-verify">
   <div class="topbar-simple">
     <button class="back-btn" data-back="screen-add">← Geri</button>
@@ -211,73 +144,54 @@
     <div class="form-group"><label class="form-lbl">Web sitesi</label><input class="form-input" type="url" id="f-web" placeholder="www.firma.com"></div>
     <div class="form-group"><label class="form-lbl">Adres</label><input class="form-input" type="text" id="f-address" placeholder="Şehir / Adres"></div>
     <div class="form-group"><label class="form-lbl">Sektör</label><input class="form-input" type="text" id="f-sector" placeholder="İnşaat, Teknoloji..."></div>
-    <button class="btn-primary" id="btn-verify-next">Onayla ve Devam Et →</button>
+    <button class="btn-primary" id="btn-verify-next">Kaydet ve Devam Et →</button>
     <div class="error-msg" id="verify-error" style="display:none;">Ad Soyad alanı zorunludur.</div>
   </div>
 </div>
 
-<!-- SCREEN: NOT EKLE -->
-<div class="screen" id="screen-note">
+<!-- GÖRÜŞME KARTI (4 ADIM) -->
+<div class="screen" id="screen-meeting">
   <div class="topbar-simple">
-    <button class="back-btn" data-back="screen-verify">← Geri</button>
-    <div class="topbar-title">Not Ekle</div>
+    <button class="back-btn" data-back="screen-home">← Geri</button>
+    <div class="topbar-title">Görüşme Kartı</div>
   </div>
-  <div class="content">
-    <div class="sec-lbl">Bu görüşmede sen kimdin?</div>
-    <select class="form-input" id="f-user-company" style="margin-bottom:14px;"><option value="">Şahsen / Seçiniz</option></select>
-    <div class="divider"></div>
-    <div class="sec-lbl">Nerede tanıştınız?</div>
-    <div class="chips-row" id="note-chips">
-      <span class="chip" data-cat="İş görüşmesi">İş görüşmesi</span>
-      <span class="chip" data-cat="Karşılaşma">Karşılaşma</span>
-      <span class="chip" data-cat="Toplantı">Toplantı</span>
-      <span class="chip" data-cat="Fuar">Fuar</span>
-      <span class="chip" data-cat="Yemek">Yemek</span>
-      <span class="chip" data-cat="Dernek">Dernek</span>
-      <span class="chip" data-cat="Diğer">Diğer</span>
-    </div>
-    <div class="divider"></div>
-    <div class="sec-lbl">Notunuz</div>
-    <textarea class="form-textarea" id="f-note" placeholder="Aklınızda ne kaldı?"></textarea>
-    <div class="sec-lbl">Sonraki Aksiyon</div>
-    <input class="form-input" type="text" id="f-next-action" placeholder="Örn: Teklif gönder, Ara, Toplantı ayarla" style="margin-bottom:10px;">
-    <div class="sec-lbl">Takip Tarihi</div>
-    <input class="form-input" type="date" id="f-next-date" style="margin-bottom:14px;">
-    <div class="ai-hint" id="ai-suggestion" style="display:none;"></div>
-    <button class="btn-primary" id="btn-save">✓ Kaydet</button>
-    <button class="btn-sec" id="btn-skip-note">Şimdi Değil, Geç</button>
+  <div class="step-bar-wrap">
+    <div id="meeting-step-bar" class="step-bar"></div>
   </div>
+  <div id="meeting-person-tag"></div>
+  <div class="content" id="meeting-body"></div>
 </div>
 
-<!-- SCREEN: KİŞİ DETAY -->
+<!-- KİŞİ DETAY -->
 <div class="screen" id="screen-detail">
   <div class="detail-hero">
     <div class="detail-topbar">
       <button class="detail-back" data-back="screen-home">←</button>
       <div class="detail-topbar-title">Kişi Detayı</div>
-      <button class="detail-edit" id="btn-edit">✏️</button>
     </div>
     <div class="detail-avatar-row">
       <div class="detail-avatar" id="detail-avatar"></div>
       <div>
         <div class="detail-name" id="detail-name"></div>
         <div class="detail-sub" id="detail-sub"></div>
-        <div style="margin-top:6px;" id="detail-tag-wrap"></div>
       </div>
     </div>
   </div>
   <div class="info-card" id="detail-info"></div>
-  <div class="note-card" id="detail-note-card" style="display:none;">
-    <div class="note-lbl">📝 Not</div>
-    <div class="note-text" id="detail-note"></div>
+
+  <div style="padding:0 16px; margin-top:12px;">
+    <button class="btn-primary" id="btn-add-meeting">+ Görüşme Kartı Ekle</button>
   </div>
-  <div class="note-card" id="detail-action-card" style="display:none; margin-top:10px;">
-    <div class="note-lbl">⚡ Sonraki Aksiyon</div>
-    <div class="note-text" id="detail-action"></div>
-    <div class="note-text" id="detail-action-date" style="margin-top:4px; color:#4B5FFA; font-weight:700;"></div>
+
+  <div style="padding:0 16px; margin-top:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <div class="sec-lbl" id="meeting-cards-header">Görüşme Kartları</div>
+    </div>
+    <div id="meeting-cards-list"></div>
   </div>
+
   <div style="padding:14px 16px;">
-    <button class="btn-danger" id="btn-delete">🗑 Kişiyi Sil</button>
+    <button class="btn-danger" id="btn-delete">Kişiyi Sil</button>
   </div>
   <div class="nav">
     <button class="nav-i" data-screen="screen-home"><div class="nav-dot">⌂</div><span>Kişiler</span></button>
@@ -286,26 +200,18 @@
   </div>
 </div>
 
-<!-- SCREEN: DIŞA AKTAR -->
+<!-- EXPORT -->
 <div class="screen" id="screen-export">
   <div class="topbar"><div class="topbar-title">Dışa Aktar</div></div>
   <div class="content">
     <div class="sec-lbl">Format Seç</div>
-    <div class="exp-card" id="btn-export-excel">
-      <div class="exp-icon" style="background:#E8F5EE;">📊</div>
-      <div><div class="exp-title">Excel (.xlsx)</div><div class="exp-sub">Tüm alanlar, düzenlenebilir</div></div>
-      <div class="exp-arrow">›</div>
-    </div>
-    <div class="exp-card" id="btn-export-pdf">
-      <div class="exp-icon" style="background:#FEF2F2;">📄</div>
-      <div><div class="exp-title">PDF Listesi</div><div class="exp-sub">Yazdırmaya hazır format</div></div>
-      <div class="exp-arrow">›</div>
-    </div>
+    <div class="exp-card" id="btn-export-excel"><div class="exp-icon" style="background:#E8F5EE;">📊</div><div><div class="exp-title">Excel (.xlsx)</div><div class="exp-sub">Tüm alanlar</div></div><div class="exp-arrow">›</div></div>
+    <div class="exp-card" id="btn-export-pdf"><div class="exp-icon" style="background:#FEF2F2;">📄</div><div><div class="exp-title">PDF Listesi</div><div class="exp-sub">Yazdırmaya hazır</div></div><div class="exp-arrow">›</div></div>
     <div class="sec-lbl" style="margin-top:16px;">Özet</div>
     <div class="summary-card">
-      <div class="summary-row"><span>👥 Toplam kişi</span><span id="sum-total">0</span></div>
-      <div class="summary-row"><span>💼 İş görüşmesi</span><span id="sum-business">0</span></div>
-      <div class="summary-row"><span>⚡ Bekleyen takip</span><span id="sum-reminders">0</span></div>
+      <div class="summary-row"><span>Toplam kişi</span><span id="sum-total">0</span></div>
+      <div class="summary-row"><span>İş görüşmesi</span><span id="sum-business">0</span></div>
+      <div class="summary-row"><span>Bekleyen takip</span><span id="sum-reminders">0</span></div>
     </div>
   </div>
   <div class="nav">
@@ -315,7 +221,7 @@
   </div>
 </div>
 
-<!-- SCREEN: PROFİL -->
+<!-- PROFİL -->
 <div class="screen" id="screen-profile">
   <div class="topbar"><div class="topbar-title">Profil</div></div>
   <div class="content">
@@ -326,21 +232,16 @@
     </div>
     <div class="sec-lbl" style="margin-top:16px;">Bildirimler</div>
     <div class="p-card" id="btn-notif-toggle" style="cursor:pointer;">
-      <div class="p-card-top">
-        <div class="add-opt-icon" style="background:#EEF0FF; width:38px; height:38px; font-size:18px;">🔔</div>
-        <div>
-          <div class="p-name">Push Bildirimler</div>
-          <div class="p-co" id="notif-status">İzin verilmedi</div>
-        </div>
-        <div class="p-arrow" id="notif-arrow">›</div>
+      <div class="p-card-inner">
+        <div class="p-info"><div class="p-name">Push Bildirimler</div><div class="p-title" id="notif-status">İzin verilmedi</div></div>
+        <div class="p-arrow">›</div>
       </div>
     </div>
     <div class="sec-lbl" style="margin-top:16px;">Şirketlerim</div>
     <div id="user-companies-list"></div>
-    <div class="p-card" id="btn-add-company" style="cursor:pointer; border:2px dashed var(--border2);">
-      <div class="p-card-top">
-        <div class="add-opt-icon" style="background:#EEF0FF; width:38px; height:38px; font-size:18px;">🏢</div>
-        <div><div class="p-name">Şirket Ekle</div><div class="p-co">Hangi sıfatla görüşüyorsun?</div></div>
+    <div class="p-card" id="btn-add-company" style="cursor:pointer; border:2px dashed var(--border2); margin-bottom:8px;">
+      <div class="p-card-inner">
+        <div class="p-info"><div class="p-name">Şirket Ekle</div><div class="p-title">Hangi sıfatla görüşüyorsun?</div></div>
         <div class="p-arrow">+</div>
       </div>
     </div>
@@ -360,10 +261,9 @@
   </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
