@@ -1146,7 +1146,8 @@ window.openTeamSummary = function() {
       '<button onclick="closeTeamSummary()" style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer;">Kapat</button>' +
     '</div>' +
     '<div style="padding:16px 18px;">' +
-      '<div id="ts-periods" style="display:flex;gap:8px;margin-bottom:16px;"></div>' +
+      '<div id="ts-periods" style="display:flex;gap:8px;margin-bottom:12px;"></div>' +
+      '<button onclick="exportTeamExcel()" style="width:100%;background:#10a35a;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;">Excel İndir (seçili dönem)</button>' +
       '<div id="ts-body"><div style="text-align:center;color:#888;padding:30px;">Yükleniyor…</div></div>' +
     '</div>';
   document.body.appendChild(ov);
@@ -1234,6 +1235,106 @@ function tsStat(label, val) {
 function tsMini(label, val) {
   return '<div><div style="font-size:16px;font-weight:800;">' + (val || 0) + '</div><div style="font-size:10px;color:#888;">' + label + '</div></div>';
 }
+
+function _xlsDate(v) {
+  if (!v) return '';
+  try { return formatDate(v); } catch (e) { return String(v).slice(0, 10); }
+}
+
+window.exportTeamExcel = async function() {
+  var r = tsRange(_tsPeriod);
+  var periodLabel = { today: 'Bugun', week: 'Bu hafta', month: 'Bu ay', all: 'Tumu' }[_tsPeriod] || '';
+  showToast('Rapor hazırlanıyor…');
+  var data = await apiGet('/api/team-export?from=' + r.from + '&to=' + r.to);
+  if (!data || data.error) { showToast((data && data.error) || 'Rapor alınamadı'); return; }
+
+  var meetings = data.meetings || [];
+  var contacts = data.contacts || [];
+  var reminders = data.reminders || [];
+  var members = data.members || [];
+
+  // Aksiyonlari gorusmelerden turet
+  var actions = [];
+  meetings.forEach(function(m) {
+    var acts = Array.isArray(m.ai_actions) ? m.ai_actions : [];
+    acts.forEach(function(a) {
+      actions.push({
+        'Üye': m.member_name || '',
+        'Kişi': m.person_name || '',
+        'Görüşme Tarihi': _xlsDate(m.created_at),
+        'Aksiyon': a.text || '',
+        'Durum': a.done ? 'Tamamlandı' : 'Açık',
+        'Tamamlama Notu': a.done ? (a.note || '') : ''
+      });
+    });
+  });
+
+  // Ozet: uye basina sayilar
+  function countBy(arr, key) {
+    var map = {};
+    arr.forEach(function(x) { var k = x[key] || ''; map[k] = (map[k] || 0) + 1; });
+    return map;
+  }
+  var mtgByMember = countBy(meetings, 'member_name');
+  var conByMember = countBy(contacts, 'member_name');
+  var remByMember = countBy(reminders, 'member_name');
+  var openByMember = {};
+  actions.forEach(function(a) { if (a['Durum'] === 'Açık') { openByMember[a['Üye']] = (openByMember[a['Üye']] || 0) + 1; } });
+
+  var summary = members.map(function(mb) {
+    var nm = mb.full_name || mb.email;
+    return {
+      'Üye': nm + (mb.role === 'leader' ? ' (Lider)' : ''),
+      'E-posta': mb.email || '',
+      'Görüşme (dönem)': mtgByMember[nm] || 0,
+      'Açık Aksiyon': openByMember[nm] || 0,
+      'Hatırlatma (dönem)': remByMember[nm] || 0,
+      'Toplam Kişi': conByMember[nm] || 0
+    };
+  });
+
+  var contactRows = contacts.map(function(c) {
+    return {
+      'Üye': c.member_name || '', 'Ad Soyad': c.person_name || '', 'Firma': c.company_name || '',
+      'Unvan': c.title || '', 'Telefon': c.phone || '', 'GSM': c.gsm || '',
+      'E-posta': c.email || '', 'Web': c.web || '', 'Sektör': c.sector || ''
+    };
+  });
+
+  var meetingRows = meetings.map(function(m) {
+    var acts = Array.isArray(m.ai_actions) ? m.ai_actions : [];
+    var openCnt = acts.filter(function(a) { return !a.done; }).length;
+    var roleLabel = Array.isArray(m.role_companies) && m.role_companies.length ? m.role_companies.join(' + ') : '';
+    return {
+      'Üye': m.member_name || '', 'Tarih': _xlsDate(m.created_at), 'Kişi': m.person_name || '',
+      'Kim Adına': roleLabel, 'Şehir': m.city || '', 'Kategori': m.category || '',
+      'AI Özet': m.ai_summary || '', 'Açık Aksiyon': openCnt, 'Görüşme Notu': m.notes || ''
+    };
+  });
+
+  var reminderRows = reminders.map(function(r2) {
+    return {
+      'Üye': r2.member_name || '', 'Kişi': r2.person_name || '',
+      'Tarih': _xlsDate(r2.reminder_date),
+      'Saat': r2.reminder_time ? String(r2.reminder_time).slice(0, 5) : '',
+      'Mesaj': r2.message || '', 'Durum': r2.is_sent ? 'Tamamlandı' : 'Bekliyor'
+    };
+  });
+
+  try {
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'Özet');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(contactRows.length ? contactRows : [{ 'Üye': '' }]), 'Kişiler');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meetingRows.length ? meetingRows : [{ 'Üye': '' }]), 'Görüşmeler');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(actions.length ? actions : [{ 'Üye': '' }]), 'Aksiyonlar');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reminderRows.length ? reminderRows : [{ 'Üye': '' }]), 'Hatırlatmalar');
+    var fname = 'KartCRM_Ekip_' + periodLabel.replace(/ /g, '_') + '_' + (data.to || '') + '.xlsx';
+    XLSX.writeFile(wb, fname);
+    showToast('✓ Excel indirildi');
+  } catch (e) {
+    showToast('Excel oluşturulamadı');
+  }
+};
 
 // ---- EXPORT ----
 function exportExcel() {
