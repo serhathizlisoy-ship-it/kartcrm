@@ -797,27 +797,74 @@ function escapeHtml(s) {
   });
 }
 
-function renderMeetingReminders() {
-  var reminders = _currentMeeting.ai_reminders || [];
+var _currentMeetingReminders = [];
+
+async function renderMeetingReminders() {
   var section = document.getElementById('md-reminders-section');
   var list = document.getElementById('md-reminders-list');
-  if (reminders.length === 0) {
+  if (!list) return;
+  var mid = _currentMeeting ? _currentMeeting.id : null;
+  if (!mid) { if (section) section.style.display = 'none'; return; }
+  var rows = await apiGet('/api/reminders?meeting_id=' + mid + (viewingMemberId ? '&member_id=' + viewingMemberId : ''));
+  if (!rows || !Array.isArray(rows)) rows = [];
+  _currentMeetingReminders = rows;
+  if (rows.length === 0) {
     if (section) section.style.display = 'none';
     return;
   }
   if (section) section.style.display = 'block';
-  list.innerHTML = reminders.map(function(r, idx) {
-    var dt = r.date ? formatDate(r.date) : '';
-    var time = r.time ? ' ' + r.time : '';
-    return '<div class="md-rem-row">' +
+  list.innerHTML = rows.map(function(r) {
+    var dateTxt = r.reminder_date ? formatDate(r.reminder_date) : '';
+    return '<div class="md-rem-row" data-rid="' + r.id + '">' +
       '<div class="md-rem-dot"></div>' +
       '<div class="md-rem-body">' +
-        '<div class="md-rem-text">' + escapeHtml(r.text || '') + '</div>' +
-        (dt ? '<div class="md-rem-date">' + dt + time + '</div>' : '') +
+        '<div class="md-rem-text">' + escapeHtml(r.message || '') + '</div>' +
+        (dateTxt ? '<div class="md-rem-date">' + dateTxt + '</div>' : '') +
       '</div>' +
+      '<button class="md-action-del" onclick="editReminder(\'' + r.id + '\')" title="Düzenle" style="color:#4B5FFA;">✎</button>' +
+      '<button class="md-action-del" onclick="deleteReminder(\'' + r.id + '\')" title="Sil">×</button>' +
     '</div>';
   }).join('');
 }
+
+window.editReminder = function(id) {
+  var r = (_currentMeetingReminders || []).find(function(x) { return String(x.id) === String(id); });
+  if (!r) return;
+  var row = document.querySelector('.md-rem-row[data-rid="' + id + '"]');
+  if (!row) return;
+  var d = (r.reminder_date || '').toString().slice(0, 10);
+  row.innerHTML =
+    '<div class="md-rem-body" style="width:100%;">' +
+      '<input id="rem-edit-msg-' + id + '" value="' + escapeHtml(r.message || '') + '" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:6px;">' +
+      '<input id="rem-edit-date-' + id + '" type="date" value="' + d + '" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:8px;">' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button onclick="saveReminderEdit(\'' + id + '\')" style="flex:1;background:#4B5FFA;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">Kaydet</button>' +
+        '<button onclick="renderMeetingReminders()" style="background:#f3f3f5;color:#444;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;">İptal</button>' +
+      '</div>' +
+    '</div>';
+};
+
+window.saveReminderEdit = async function(id) {
+  var msgEl = document.getElementById('rem-edit-msg-' + id);
+  var dateEl = document.getElementById('rem-edit-date-' + id);
+  var message = msgEl ? msgEl.value.trim() : '';
+  var reminder_date = dateEl ? dateEl.value : '';
+  if (!message) { showToast('Hatırlatma metni boş olamaz'); return; }
+  var data = await apiPut('/api/reminders?id=' + id + (viewingMemberId ? '&member_id=' + viewingMemberId : ''), { message: message, reminder_date: reminder_date || null });
+  if (data && data.error) { showToast(data.error); return; }
+  showToast('✓ Hatırlatma güncellendi');
+  renderMeetingReminders();
+  loadReminders();
+};
+
+window.deleteReminder = async function(id) {
+  if (!confirm('Bu hatırlatmayı silmek istiyor musunuz?')) return;
+  var data = await apiDelete('/api/reminders?id=' + id + (viewingMemberId ? '&member_id=' + viewingMemberId : ''));
+  if (data && data.error) { showToast(data.error); return; }
+  showToast('Hatırlatma silindi');
+  renderMeetingReminders();
+  loadReminders();
+};
 
 window.toggleAction = function(idx, checked) {
   var a = _currentMeeting.ai_actions[idx];
@@ -833,6 +880,14 @@ window.toggleAction = function(idx, checked) {
     a.done = true;
     a.note = note || '';
     a.done_at = new Date().toISOString();
+    saveMeetingActions();
+    // İlişkili hatırlatma varsa güncelleme teklif et
+    if (_currentMeetingReminders && _currentMeetingReminders.length > 0) {
+      if (confirm('İlgili hatırlatmayı da güncellemek ister misin? (tarih/metin değişmiş olabilir)')) {
+        editReminder(_currentMeetingReminders[0].id);
+      }
+    }
+    return;
   } else {
     a.done = false;
     a.note = '';
@@ -952,6 +1007,7 @@ window.viewMemberData = function(memberId, memberName) {
   showMemberBanner(memberName);
   showScreen('screen-home');
   loadContacts();
+  loadReminders();
 };
 
 window.exitMemberView = function() {
@@ -960,6 +1016,7 @@ window.exitMemberView = function() {
   removeMemberBanner();
   showScreen('screen-home');
   loadContacts();
+  loadReminders();
 };
 
 function showMemberBanner(name) {
@@ -1083,7 +1140,7 @@ var _remindersData = [];
 var _remindersOpen = {};
 
 async function loadReminders() {
-  var data = await apiGet('/api/reminders');
+  var data = await apiGet('/api/reminders' + (viewingMemberId ? '?member_id=' + viewingMemberId : ''));
   if (!data) return;
   _remindersData = data;
   renderReminders();
@@ -1148,7 +1205,7 @@ window.markReminderDone = async function(id, ev) {
   _remindersData = _remindersData.filter(function(r) { return String(r.id) !== String(id); });
   renderReminders();
   try {
-    await apiPut('/api/reminders?id=' + id);
+    await apiPut('/api/reminders?id=' + id + (viewingMemberId ? '&member_id=' + viewingMemberId : ''));
     showToast('✓ Tamamlandı');
   } catch (e) {
     showToast('Hata oluştu');
