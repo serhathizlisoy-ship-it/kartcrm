@@ -952,16 +952,16 @@ async function loadTeam() {
 }
 
 function renderTeamSection() {
-  var screen = document.getElementById('screen-profile');
-  if (!screen) return;
+  var content = document.querySelector('#screen-profile .content');
+  if (!content) return;
   var existing = document.getElementById('team-section');
   if (existing) existing.remove();
 
   var box = document.createElement('div');
   box.id = 'team-section';
-  box.style.cssText = 'margin-top:18px;padding-top:18px;border-top:1px solid var(--line,#eee);';
+  box.style.cssText = 'margin-top:16px;';
 
-  var html = '<div style="font-weight:800;font-size:15px;margin-bottom:10px;color:var(--text1,#1a1a2e);">Ekip</div>';
+  var html = '<div class="sec-lbl" style="margin-bottom:10px;">Ekip</div>';
 
   if (!teamData) {
     html += '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:12px;">Bir ekip kur veya katılım kodu ile mevcut bir ekibe katıl.</div>';
@@ -990,7 +990,12 @@ function renderTeamSection() {
   }
 
   box.innerHTML = html;
-  screen.appendChild(box);
+  var logoutBtn = document.getElementById('btn-logout2');
+  if (logoutBtn && logoutBtn.parentElement === content) {
+    content.insertBefore(box, logoutBtn);
+  } else {
+    content.appendChild(box);
+  }
 }
 
 window.createTeam = async function() {
