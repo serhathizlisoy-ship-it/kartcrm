@@ -317,12 +317,15 @@ async function sendToOCR(dataUrl) {
   try {
     var response = await fetch('https://kartcrm.vercel.app/api/ocr', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
       body: JSON.stringify({ imageBase64: base64 })
     });
-    if (!response.ok) throw new Error('Sunucu hatası: ' + response.status);
-    var parsed = await response.json();
     document.getElementById('ocr-loading').style.display = 'none';
+    var parsed = await response.json().catch(function() { return {}; });
+    if (!response.ok) {
+      showToast(parsed.error || ('OCR hatası: ' + response.status));
+      return {};
+    }
     return parsed;
   } catch(e) {
     document.getElementById('ocr-loading').style.display = 'none';
@@ -569,7 +572,11 @@ async function renderStep4() {
 
   if (meetingData.notes && meetingData.notes.length > 10) {
     var result = await apiPost('/api/ai', { notes: meetingData.notes, person_name: meetingData.personName });
-    if (result && !result.error) aiResult = result;
+    if (result && !result.error) {
+      aiResult = result;
+    } else if (result && result.error) {
+      showToast(result.error);
+    }
   }
   renderAiResult(false);
 }

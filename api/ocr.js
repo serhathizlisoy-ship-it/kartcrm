@@ -1,6 +1,35 @@
+import { neon } from '@neondatabase/serverless';
+import { jwtVerify } from 'jose';
+import { checkRateLimit } from '../lib/ratelimit.js';
+
+async function getUser(req) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return null;
+  try {
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret);
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: 'Giriş gerekli' });
+
+  const sql = neon(process.env.DATABASE_URL);
+  const rl = await checkRateLimit(sql, String(user.userId), 'ai_ocr', 10, 200);
+  if (!rl.allowed) {
+    const msg = rl.reason === 'day'
+      ? 'Günlük tarama limitine ulaşıldı. Yarın tekrar deneyin.'
+      : 'Çok fazla istek. Lütfen biraz bekleyip tekrar deneyin.';
+    return res.status(429).json({ error: msg });
   }
 
   const { imageBase64 } = req.body;

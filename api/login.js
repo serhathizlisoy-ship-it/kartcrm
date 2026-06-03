@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
+import { checkRateLimit } from '../lib/ratelimit.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -11,6 +12,13 @@ export default async function handler(req, res) {
   const sql = neon(process.env.DATABASE_URL);
 
   try {
+    // Brute-force koruması: e-posta başına deneme sınırı (bcrypt'ten ÖNCE)
+    const key = 'login:' + String(email).trim().toLowerCase();
+    const rl = await checkRateLimit(sql, key, 'login', 8, 50);
+    if (!rl.allowed) {
+      return res.status(429).json({ error: 'Çok fazla giriş denemesi. Lütfen biraz bekleyip tekrar deneyin.' });
+    }
+
     const [user] = await sql`SELECT * FROM users WHERE email = ${email}`;
     if (!user) return res.status(401).json({ error: 'Email veya şifre hatalı' });
 
