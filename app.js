@@ -1210,6 +1210,7 @@ window.copyJoinCode = function(code) {
 
 // ---- EKİP ÖZETİ (lider panosu) ----
 var _tsPeriod = 'today';
+var _tsLastData = null;
 
 window.openTeamSummary = function() {
   closeTeamSummary();
@@ -1224,7 +1225,10 @@ window.openTeamSummary = function() {
     '</div>' +
     '<div style="padding:16px 18px;">' +
       '<div id="ts-periods" style="display:flex;gap:8px;margin-bottom:12px;"></div>' +
-      '<button onclick="exportTeamExcel()" style="width:100%;background:#10a35a;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;">Excel İndir (seçili dönem)</button>' +
+      '<div style="display:flex;gap:8px;margin-bottom:16px;">' +
+        '<button onclick="exportTeamExcel()" style="flex:1;background:#10a35a;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">Excel İndir</button>' +
+        '<button onclick="printTeamSummaryPdf()" style="flex:1;background:#4B5FFA;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">PDF</button>' +
+      '</div>' +
       '<div id="ts-body"><div style="text-align:center;color:#888;padding:30px;">Yükleniyor…</div></div>' +
     '</div>';
   document.body.appendChild(ov);
@@ -1276,6 +1280,7 @@ async function loadTeamSummary() {
     body.innerHTML = '<div style="color:#DC2626;padding:20px;">' + ((data && data.error) || 'Yüklenemedi') + '</div>';
     return;
   }
+  _tsLastData = data;
   var periodLabel = { today: 'Bugün', week: 'Bu hafta', month: 'Bu ay', all: 'Toplam' }[_tsPeriod] || '';
   var T = data.totals || {};
   var html = '';
@@ -1411,6 +1416,71 @@ window.exportTeamExcel = async function() {
   } catch (e) {
     showToast('Excel oluşturulamadı');
   }
+};
+
+window.printTeamSummaryPdf = function() {
+  var data = _tsLastData;
+  if (!data) { showToast('Önce veriler yüklensin'); return; }
+  var periodLabel = { today: 'Bugün', week: 'Bu hafta', month: 'Bu ay', all: 'Toplam' }[_tsPeriod] || '';
+  var teamName = (teamData && teamData.name) ? teamData.name : 'Ekip';
+  var T = data.totals || {};
+  var rows = (data.members || []).map(function(m) {
+    var nm = (m.full_name || m.email) + (m.role === 'leader' ? ' (Lider)' : '');
+    return '<tr>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #eee;">' + escapeHtml(nm) + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;">' + (m.meetings_range || 0) + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;">' + (m.open_actions || 0) + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;">' + (m.pending_reminders || 0) + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;">' + (m.meetings_total || 0) + '</td>' +
+    '</tr>';
+  }).join('');
+  var nowTxt = escapeHtml(formatDate(new Date().toISOString()));
+  var html = '<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>Ekip Özeti</title>' +
+    '<style>' +
+    '*{box-sizing:border-box;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}' +
+    'body{margin:0;padding:32px;color:#1a1a2e;}' +
+    'h1{font-size:22px;margin:0 0 2px;}' +
+    '.sub{color:#555;font-size:13px;margin-bottom:18px;}' +
+    '.tot{display:flex;gap:10px;margin-bottom:18px;}' +
+    '.tot div{flex:1;border:1px solid #e3e3ec;border-radius:10px;padding:12px;text-align:center;}' +
+    '.tot b{display:block;font-size:22px;color:#4B5FFA;}' +
+    '.tot span{font-size:11px;color:#666;}' +
+    'table{width:100%;border-collapse:collapse;font-size:13px;}' +
+    'th{text-align:left;padding:8px 10px;border-bottom:2px solid #4B5FFA;font-size:11px;letter-spacing:.5px;color:#4B5FFA;}' +
+    'th.c{text-align:center;}' +
+    '.foot{margin-top:24px;color:#999;font-size:11px;text-align:center;}' +
+    '@media print{body{padding:8px;}}' +
+    '</style></head><body>' +
+    '<h1>Ekip Özeti — ' + escapeHtml(teamName) + '</h1>' +
+    '<div class="sub">Dönem: ' + periodLabel + ' · ' + nowTxt + '</div>' +
+    '<div class="tot">' +
+      '<div><b>' + (T.meetings_range || 0) + '</b><span>Görüşme (' + periodLabel + ')</span></div>' +
+      '<div><b>' + (T.open_actions || 0) + '</b><span>Açık aksiyon</span></div>' +
+      '<div><b>' + (T.pending_reminders || 0) + '</b><span>Bekleyen hatırlatma</span></div>' +
+    '</div>' +
+    '<table><thead><tr><th>Üye</th><th class="c">Görüşme</th><th class="c">Açık aks.</th><th class="c">Bekleyen htr.</th><th class="c">Toplam</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>' +
+    '<div class="foot">KartCRM · ' + nowTxt + '</div>' +
+    '</body></html>';
+
+  var old = document.getElementById('pdf-print-frame');
+  if (old) old.remove();
+  var iframe = document.createElement('iframe');
+  iframe.id = 'pdf-print-frame';
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(iframe);
+  var doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  setTimeout(function() {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      showToast('Yazdırma açılamadı');
+    }
+  }, 350);
 };
 
 // ---- EXPORT ----
