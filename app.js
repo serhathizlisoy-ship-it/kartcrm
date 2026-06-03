@@ -1132,8 +1132,11 @@ window.copyJoinCode = function(code) {
 };
 
 // ---- EKİP ÖZETİ (lider panosu) ----
+var _tsPeriod = 'today';
+
 window.openTeamSummary = function() {
   closeTeamSummary();
+  _tsPeriod = 'today';
   var ov = document.createElement('div');
   ov.id = 'team-summary-overlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#eef0f6;overflow-y:auto;';
@@ -1143,14 +1146,11 @@ window.openTeamSummary = function() {
       '<button onclick="closeTeamSummary()" style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer;">Kapat</button>' +
     '</div>' +
     '<div style="padding:16px 18px;">' +
-      '<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">' +
-        '<div><div style="font-size:11px;color:#888;margin-bottom:4px;">Başlangıç</div><input id="ts-from" type="date" style="padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></div>' +
-        '<div><div style="font-size:11px;color:#888;margin-bottom:4px;">Bitiş</div><input id="ts-to" type="date" style="padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></div>' +
-        '<button onclick="applyTeamSummaryRange()" style="background:#4B5FFA;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;">Uygula</button>' +
-      '</div>' +
+      '<div id="ts-periods" style="display:flex;gap:8px;margin-bottom:16px;"></div>' +
       '<div id="ts-body"><div style="text-align:center;color:#888;padding:30px;">Yükleniyor…</div></div>' +
     '</div>';
   document.body.appendChild(ov);
+  renderTsPeriods();
   loadTeamSummary();
 };
 
@@ -1159,31 +1159,50 @@ window.closeTeamSummary = function() {
   if (o) o.remove();
 };
 
-window.applyTeamSummaryRange = function() {
-  var f = document.getElementById('ts-from');
-  var t = document.getElementById('ts-to');
-  loadTeamSummary(f ? f.value : '', t ? t.value : '');
+function renderTsPeriods() {
+  var wrap = document.getElementById('ts-periods');
+  if (!wrap) return;
+  var opts = [['today', 'Bugün'], ['week', 'Bu hafta'], ['month', 'Bu ay'], ['all', 'Toplam']];
+  wrap.innerHTML = opts.map(function(o) {
+    var active = _tsPeriod === o[0];
+    return '<button onclick="setTsPeriod(\'' + o[0] + '\')" style="flex:1;background:' + (active ? '#4B5FFA' : '#fff') + ';color:' + (active ? '#fff' : '#444') + ';border:1px solid ' + (active ? '#4B5FFA' : '#ddd') + ';border-radius:10px;padding:10px 4px;font-size:13px;font-weight:700;cursor:pointer;">' + o[1] + '</button>';
+  }).join('');
+}
+
+window.setTsPeriod = function(p) {
+  _tsPeriod = p;
+  renderTsPeriods();
+  loadTeamSummary();
 };
 
-async function loadTeamSummary(from, to) {
-  var qs = [];
-  if (from) qs.push('from=' + from);
-  if (to) qs.push('to=' + to);
-  var data = await apiGet('/api/team-summary' + (qs.length ? '?' + qs.join('&') : ''));
+function tsRange(period) {
+  var today = new Date().toISOString().split('T')[0];
+  if (period === 'week') {
+    var d = new Date(today + 'T00:00:00Z');
+    var day = d.getUTCDay();
+    var diff = (day === 0 ? 6 : day - 1); // Pazartesi başlangıç
+    d.setUTCDate(d.getUTCDate() - diff);
+    return { from: d.toISOString().split('T')[0], to: today };
+  }
+  if (period === 'month') return { from: today.slice(0, 8) + '01', to: today };
+  if (period === 'all') return { from: '2000-01-01', to: today };
+  return { from: today, to: today }; // today
+}
+
+async function loadTeamSummary() {
+  var r = tsRange(_tsPeriod);
+  var data = await apiGet('/api/team-summary?from=' + r.from + '&to=' + r.to);
   var body = document.getElementById('ts-body');
   if (!body) return;
   if (!data || data.error) {
     body.innerHTML = '<div style="color:#DC2626;padding:20px;">' + ((data && data.error) || 'Yüklenemedi') + '</div>';
     return;
   }
-  var fEl = document.getElementById('ts-from');
-  var tEl = document.getElementById('ts-to');
-  if (fEl && data.from) fEl.value = data.from;
-  if (tEl && data.to) tEl.value = data.to;
+  var periodLabel = { today: 'Bugün', week: 'Bu hafta', month: 'Bu ay', all: 'Toplam' }[_tsPeriod] || '';
   var T = data.totals || {};
   var html = '';
   html += '<div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-around;text-align:center;">' +
-    tsStat('Görüşme (dönem)', T.meetings_range) +
+    tsStat('Görüşme · ' + periodLabel, T.meetings_range) +
     tsStat('Açık aksiyon', T.open_actions) +
     tsStat('Bekleyen htr.', T.pending_reminders) +
     '</div>';
@@ -1198,8 +1217,7 @@ async function loadTeamSummary(from, to) {
         (isLeaderRow ? '' : '<div style="color:#4B5FFA;font-size:18px;font-weight:700;">›</div>') +
       '</div>' +
       '<div style="display:flex;justify-content:space-around;text-align:center;border-top:1px solid #f0f0f0;padding-top:10px;">' +
-        tsMini('Bugün', m.meetings_today) +
-        tsMini('Dönem', m.meetings_range) +
+        tsMini('Görüşme', m.meetings_range) +
         tsMini('Açık aks.', m.open_actions) +
         tsMini('Htr.', m.pending_reminders) +
         tsMini('Toplam', m.meetings_total) +
