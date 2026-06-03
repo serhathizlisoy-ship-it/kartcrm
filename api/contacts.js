@@ -12,12 +12,28 @@ async function getUser(req) {
   } catch { return null; }
 }
 
+// member_id verilmisse, istek yapanin o uyenin LIDERI oldugunu dogrular.
+// Dogruysa hedef uyenin id'sini, degilse null (yetki yok) doner.
+// member_id yoksa istek yapanin kendi id'si doner.
+async function resolveTargetUserId(sql, requesterId, memberId) {
+  if (!memberId || String(memberId) === String(requesterId)) return requesterId;
+  const rows = await sql`
+    SELECT u.id
+    FROM users u
+    JOIN teams t ON t.id = u.team_id
+    WHERE u.id = ${memberId} AND t.leader_user_id = ${requesterId}
+  `;
+  return rows.length > 0 ? memberId : null;
+}
+
 export default async function handler(req, res) {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Giris gerekli' });
   const sql = neon(process.env.DATABASE_URL);
 
   if (req.method === 'GET') {
+    const targetId = await resolveTargetUserId(sql, user.userId, req.query.member_id);
+    if (!targetId) return res.status(403).json({ error: 'Yetki yok' });
     try {
       // Kişileri getir
       const contacts = await sql`
@@ -33,7 +49,7 @@ export default async function handler(req, res) {
         LEFT JOIN meetings m ON m.id = (
           SELECT id FROM meetings WHERE person_id = p.id ORDER BY created_at DESC LIMIT 1
         )
-        WHERE p.user_id = ${user.userId}
+        WHERE p.user_id = ${targetId}
         ORDER BY p.created_at DESC
       `;
 
@@ -41,7 +57,7 @@ export default async function handler(req, res) {
       const userCompanies = await sql`
         SELECT id, company_name, title, is_default
         FROM user_companies
-        WHERE user_id = ${user.userId}
+        WHERE user_id = ${targetId}
         ORDER BY is_default DESC, created_at ASC
       `;
 

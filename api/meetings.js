@@ -12,6 +12,20 @@ async function getUser(req) {
   } catch { return null; }
 }
 
+// member_id verilmisse, istek yapanin o uyenin LIDERI oldugunu dogrular.
+// Dogruysa hedef uyenin id'sini, degilse null (yetki yok) doner.
+// member_id yoksa istek yapanin kendi id'si doner.
+async function resolveTargetUserId(sql, requesterId, memberId) {
+  if (!memberId || String(memberId) === String(requesterId)) return requesterId;
+  const rows = await sql`
+    SELECT u.id
+    FROM users u
+    JOIN teams t ON t.id = u.team_id
+    WHERE u.id = ${memberId} AND t.leader_user_id = ${requesterId}
+  `;
+  return rows.length > 0 ? memberId : null;
+}
+
 export default async function handler(req, res) {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Giris gerekli' });
@@ -20,6 +34,8 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { person_id } = req.query;
     if (!person_id) return res.status(400).json({ error: 'person_id gerekli' });
+    const targetId = await resolveTargetUserId(sql, user.userId, req.query.member_id);
+    if (!targetId) return res.status(403).json({ error: 'Yetki yok' });
     try {
       const rows = await sql`
         SELECT m.*,
@@ -32,7 +48,7 @@ export default async function handler(req, res) {
             )
           ) as user_companies_data
         FROM meetings m
-        WHERE m.person_id = ${person_id} AND m.user_id = ${user.userId}
+        WHERE m.person_id = ${person_id} AND m.user_id = ${targetId}
         ORDER BY m.created_at DESC
       `;
       return res.status(200).json(rows);
@@ -97,12 +113,14 @@ export default async function handler(req, res) {
   if (req.method === 'PUT') {
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id gerekli' });
+    const targetId = await resolveTargetUserId(sql, user.userId, req.query.member_id);
+    if (!targetId) return res.status(403).json({ error: 'Yetki yok' });
     const { ai_actions, ai_summary, ai_reminders } = req.body;
     try {
       // Mevcut kaydı al, sadece gönderilen alanları guncelle
       const [current] = await sql`
         SELECT ai_actions, ai_summary, ai_reminders FROM meetings
-        WHERE id = ${id} AND user_id = ${user.userId}
+        WHERE id = ${id} AND user_id = ${targetId}
       `;
       if (!current) return res.status(404).json({ error: 'Bulunamadi' });
 
@@ -115,7 +133,7 @@ export default async function handler(req, res) {
         SET ai_actions = ${JSON.stringify(newActions)},
             ai_summary = ${newSummary},
             ai_reminders = ${JSON.stringify(newReminders)}
-        WHERE id = ${id} AND user_id = ${user.userId}
+        WHERE id = ${id} AND user_id = ${targetId}
       `;
       return res.status(200).json({ success: true });
     } catch (e) {

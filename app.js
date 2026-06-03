@@ -149,7 +149,7 @@ var userCompaniesCache = [];
 var searchQuery = '';
 
 async function loadContacts() {
-  var data = await apiGet('/api/contacts');
+  var data = await apiGet('/api/contacts' + (viewingMemberId ? '?member_id=' + viewingMemberId : ''));
   if (!data) return;
   if (data.contacts) {
     contacts = data.contacts;
@@ -685,7 +685,7 @@ function nextMeetingStep() {
 }
 
 async function loadMeetingCards(personId) {
-  var meetings = await apiGet('/api/meetings?person_id=' + personId);
+  var meetings = await apiGet('/api/meetings?person_id=' + personId + (viewingMemberId ? '&member_id=' + viewingMemberId : ''));
   if (!meetings) return;
   window._currentMeetings = meetings;
   var container = document.getElementById('meeting-cards-list');
@@ -857,7 +857,7 @@ window.addActionPrompt = function() {
 async function saveMeetingActions() {
   renderMeetingActions();
   try {
-    await apiPut('/api/meetings?id=' + _currentMeetingId, { ai_actions: _currentMeeting.ai_actions });
+    await apiPut('/api/meetings?id=' + _currentMeetingId + (viewingMemberId ? '&member_id=' + viewingMemberId : ''), { ai_actions: _currentMeeting.ai_actions });
     // Cache güncelle
     var cached = (window._currentMeetings || []).find(function(x) { return String(x.id) === String(_currentMeetingId); });
     if (cached) cached.ai_actions = _currentMeeting.ai_actions;
@@ -890,7 +890,7 @@ window.saveSummary = async function() {
   var newText = document.getElementById('md-summary-input').value.trim();
   _currentMeeting.ai_summary = newText;
   try {
-    await apiPut('/api/meetings?id=' + _currentMeetingId, { ai_summary: newText });
+    await apiPut('/api/meetings?id=' + _currentMeetingId + (viewingMemberId ? '&member_id=' + viewingMemberId : ''), { ai_summary: newText });
     var cached = (window._currentMeetings || []).find(function(x) { return String(x.id) === String(_currentMeetingId); });
     if (cached) cached.ai_summary = newText;
     document.getElementById('md-summary').textContent = newText || '—';
@@ -943,6 +943,38 @@ window.deleteUserCompany = async function(id) {
 
 // ---- EKİP ----
 var teamData = null;
+var viewingMemberId = null;
+var viewingMemberName = null;
+
+window.viewMemberData = function(memberId, memberName) {
+  viewingMemberId = memberId;
+  viewingMemberName = memberName;
+  showMemberBanner(memberName);
+  showScreen('screen-home');
+  loadContacts();
+};
+
+window.exitMemberView = function() {
+  viewingMemberId = null;
+  viewingMemberName = null;
+  removeMemberBanner();
+  showScreen('screen-home');
+  loadContacts();
+};
+
+function showMemberBanner(name) {
+  removeMemberBanner();
+  var bar = document.createElement('div');
+  bar.id = 'member-view-banner';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#4B5FFA;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.18);';
+  bar.innerHTML = '<span>👁 ' + name + ' görünümü</span><button onclick="exitMemberView()" style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Kendime dön</button>';
+  document.body.appendChild(bar);
+}
+
+function removeMemberBanner() {
+  var b = document.getElementById('member-view-banner');
+  if (b) b.remove();
+}
 
 async function loadTeam() {
   var data = await apiGet('/api/teams');
@@ -981,7 +1013,10 @@ function renderTeamSection() {
     } else {
       html += teamData.members.map(function(m) {
         var tag = m.role === 'leader' ? ' · Lider' : '';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line,#f0f0f0);"><div class="avatar" style="width:32px;height:32px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + getInitials(m.full_name || m.email) + '</div><div><div style="font-size:13px;font-weight:700;">' + (m.full_name || m.email) + tag + '</div><div style="font-size:11px;color:var(--text3,#888);">' + m.email + '</div></div></div>';
+        var isMember = m.role !== 'leader';
+        var clickAttr = isMember ? ' onclick="viewMemberData(\'' + m.id + '\',\'' + (m.full_name || m.email).replace(/['"]/g, "") + '\')" style="cursor:pointer;"' : '';
+        var arrow = isMember ? '<div style="margin-left:auto;color:#4B5FFA;font-size:18px;font-weight:700;">›</div>' : '';
+        return '<div' + clickAttr + ' style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line,#f0f0f0);' + (isMember ? 'cursor:pointer;' : '') + '"><div class="avatar" style="width:32px;height:32px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + getInitials(m.full_name || m.email) + '</div><div><div style="font-size:13px;font-weight:700;">' + (m.full_name || m.email) + tag + '</div><div style="font-size:11px;color:var(--text3,#888);">' + m.email + '</div></div>' + arrow + '</div>';
       }).join('');
     }
   } else {
