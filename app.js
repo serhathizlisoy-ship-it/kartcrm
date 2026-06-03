@@ -1496,17 +1496,112 @@ window.printTeamSummaryPdf = function() {
 };
 
 // ---- EXPORT ----
-function exportExcel() {
+async function exportExcel() {
+  showToast('Rapor hazırlanıyor…');
+  var data = await apiGet('/api/team-data?type=self');
+  if (!data || data.error) { showToast((data && data.error) || 'Veri alınamadı'); return; }
+  var meetings = data.meetings || [];
+  var contactsD = data.contacts || [];
+  var reminders = data.reminders || [];
+
+  var contactRows = contactsD.map(function(c) {
+    return {
+      'Ad Soyad': c.person_name || '', 'Firma': c.company_name || '', 'Unvan': c.title || '',
+      'Telefon': c.phone || '', 'GSM': c.gsm || '', 'E-posta': c.email || '',
+      'Web': c.web || '', 'Sektör': c.sector || ''
+    };
+  });
+
+  var meetingRows = meetings.map(function(m) {
+    var acts = Array.isArray(m.ai_actions) ? m.ai_actions : [];
+    var openCnt = acts.filter(function(a) { return !a.done; }).length;
+    var roleLabel = Array.isArray(m.role_companies) && m.role_companies.length ? m.role_companies.join(' + ') : '';
+    return {
+      'Tarih': _xlsDate(m.created_at), 'Kişi': m.person_name || '', 'Kim Adına': roleLabel,
+      'Şehir': m.city || '', 'Kategori': m.category || '', 'AI Özet': m.ai_summary || '',
+      'Açık Aksiyon': openCnt, 'Görüşme Notu': m.notes || ''
+    };
+  });
+
+  var actionRows = [];
+  meetings.forEach(function(m) {
+    (Array.isArray(m.ai_actions) ? m.ai_actions : []).forEach(function(a) {
+      actionRows.push({
+        'Kişi': m.person_name || '', 'Görüşme Tarihi': _xlsDate(m.created_at),
+        'Aksiyon': a.text || '', 'Durum': a.done ? 'Tamamlandı' : 'Açık',
+        'Tamamlama Notu': a.done ? (a.note || '') : ''
+      });
+    });
+  });
+
+  var reminderRows = reminders.map(function(r2) {
+    return {
+      'Kişi': r2.person_name || '', 'Tarih': _xlsDate(r2.reminder_date),
+      'Saat': r2.reminder_time ? String(r2.reminder_time).slice(0, 5) : '',
+      'Mesaj': r2.message || '', 'Durum': r2.is_sent ? 'Tamamlandı' : 'Bekliyor'
+    };
+  });
+
+  try {
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(contactRows.length ? contactRows : [{ 'Ad Soyad': '' }]), 'Kişiler');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(meetingRows.length ? meetingRows : [{ 'Tarih': '' }]), 'Görüşmeler');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(actionRows.length ? actionRows : [{ 'Kişi': '' }]), 'Aksiyonlar');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reminderRows.length ? reminderRows : [{ 'Kişi': '' }]), 'Hatırlatmalar');
+    XLSX.writeFile(wb, 'KartCRM_Verilerim.xlsx');
+    showToast('✓ Excel indirildi');
+  } catch (e) {
+    showToast('Excel oluşturulamadı');
+  }
+}
+
+window.exportPdf = function() {
   if (!contacts.length) { showToast('Henüz kişi yok'); return; }
   var rows = contacts.map(function(c) {
-    return { 'Ad Soyad': c.full_name||'', 'Firma': c.company_name||'', 'Unvan': c.title||'', 'Telefon': c.phone||'', 'GSM': c.gsm||'', 'E-posta': c.email||'', 'Web': c.web||'', 'Sektör': c.sector||'' };
-  });
-  var wb = XLSX.utils.book_new();
-  var ws = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Kişiler');
-  XLSX.writeFile(wb, 'KartCRM_Kisiler.xlsx');
-  showToast('✓ Excel indirildi');
-}
+    var sub = [c.title, c.company_name].filter(Boolean).join(' · ');
+    var lines = [c.phone, c.gsm, c.email].filter(Boolean).join(' · ');
+    return '<tr>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #eee;"><b>' + escapeHtml(c.full_name || '') + '</b>' +
+      (sub ? '<br><span style="color:#666;font-size:12px;">' + escapeHtml(sub) + '</span>' : '') + '</td>' +
+      '<td style="padding:8px 10px;border-bottom:1px solid #eee;font-size:12px;color:#444;">' + escapeHtml(lines) + '</td>' +
+    '</tr>';
+  }).join('');
+  var nowTxt = escapeHtml(formatDate(new Date().toISOString()));
+  var html = '<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>Kişi Listesi</title>' +
+    '<style>' +
+    '*{box-sizing:border-box;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}' +
+    'body{margin:0;padding:32px;color:#1a1a2e;}' +
+    'h1{font-size:22px;margin:0 0 2px;}' +
+    '.sub{color:#555;font-size:13px;margin-bottom:18px;}' +
+    'table{width:100%;border-collapse:collapse;font-size:14px;}' +
+    'th{text-align:left;padding:8px 10px;border-bottom:2px solid #4B5FFA;font-size:11px;letter-spacing:.5px;color:#4B5FFA;}' +
+    '.foot{margin-top:24px;color:#999;font-size:11px;text-align:center;}' +
+    '@media print{body{padding:8px;}}' +
+    '</style></head><body>' +
+    '<h1>Kişi Listesi</h1>' +
+    '<div class="sub">' + contacts.length + ' kişi · ' + nowTxt + '</div>' +
+    '<table><thead><tr><th>Kişi</th><th>İletişim</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div class="foot">KartCRM · ' + nowTxt + '</div>' +
+    '</body></html>';
+  var old = document.getElementById('pdf-print-frame');
+  if (old) old.remove();
+  var iframe = document.createElement('iframe');
+  iframe.id = 'pdf-print-frame';
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(iframe);
+  var doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  setTimeout(function() {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      showToast('Yazdırma açılamadı');
+    }
+  }, 350);
+};
 
 // ---- REMINDERS ----
 var _remindersData = [];
@@ -1874,6 +1969,8 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('btn-export-excel').addEventListener('click', exportExcel);
+  var btnExpPdf = document.getElementById('btn-export-pdf');
+  if (btnExpPdf) btnExpPdf.addEventListener('click', exportPdf);
   document.getElementById('btn-notif-toggle').addEventListener('click', requestNotificationPermission);
 
   document.getElementById('btn-add-company').addEventListener('click', function() {

@@ -26,7 +26,41 @@ export default async function handler(req, res) {
   const sql = neon(process.env.DATABASE_URL);
 
   try {
-    // Lider dogrulama (her iki tip icin ortak)
+    const type = req.query.type || 'summary';
+
+    // ---------- TYPE: SELF (kullanicinin kendi verisi — lider kontrolu yok) ----------
+    if (type === 'self') {
+      const uid = user.userId;
+      const contacts = await sql`
+        SELECT p.full_name AS person_name, c.name AS company_name, pc.title,
+               pc.phone, pc.gsm, pc.fax, pc.email, c.website AS web, c.sector
+        FROM persons p
+        LEFT JOIN person_companies pc ON pc.person_id = p.id AND pc.is_primary = true
+        LEFT JOIN companies c ON c.id = pc.company_id
+        WHERE p.user_id = ${uid}
+        ORDER BY p.full_name`;
+      const meetings = await sql`
+        SELECT m.id, m.created_at, m.city, m.category, m.ai_summary, m.notes, m.ai_actions,
+               p.full_name AS person_name,
+               (
+                 SELECT json_agg(uc.company_name)
+                 FROM user_companies uc
+                 WHERE uc.id::text = ANY(SELECT jsonb_array_elements_text(m.user_company_ids))
+               ) AS role_companies
+        FROM meetings m
+        LEFT JOIN persons p ON p.id = m.person_id
+        WHERE m.user_id = ${uid}
+        ORDER BY m.created_at DESC`;
+      const reminders = await sql`
+        SELECT p.full_name AS person_name, r.reminder_date, r.reminder_time, r.message, r.is_sent
+        FROM reminders r
+        LEFT JOIN persons p ON p.id = r.person_id
+        WHERE r.user_id = ${uid}
+        ORDER BY r.reminder_date`;
+      return res.status(200).json({ contacts, meetings, reminders });
+    }
+
+    // Lider dogrulama (summary ve export tipleri icin)
     const [me] = await sql`SELECT team_id, role FROM users WHERE id = ${user.userId}`;
     if (!me || !me.team_id || me.role !== 'leader') {
       return res.status(403).json({ error: 'Yetki yok' });
@@ -39,8 +73,6 @@ export default async function handler(req, res) {
     const from = req.query.from || todayStr;
     const to = req.query.to || todayStr;
     const toExclusive = addDay(to);
-
-    const type = req.query.type || 'summary';
 
     // Uyeler (her iki tip icin)
     const members = await sql`
