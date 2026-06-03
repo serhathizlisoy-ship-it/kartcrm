@@ -5,7 +5,7 @@ async function getUser(req) {
   const auth = req.headers.authorization;
   if (!auth) return null;
   const token = auth.replace('Bearer ', '');
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'kartcrm-secret-2024');
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
   try {
     const { payload } = await jwtVerify(token, secret);
     return payload;

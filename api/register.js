@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       RETURNING id, email, full_name
     `;
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'kartcrm-secret-2024');
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const token = await new SignJWT({ userId: user.id, email: user.email })
       .setProtectedHeader({ alg: 'HS256' })
       .setExpirationTime('30d')
