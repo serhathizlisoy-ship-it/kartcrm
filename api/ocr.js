@@ -15,6 +15,12 @@ async function getUser(req) {
   }
 }
 
+async function logError(sql, endpoint, status, message, userKey) {
+  try {
+    await sql`INSERT INTO error_logs (endpoint, status, message, user_key) VALUES (${endpoint}, ${status}, ${String(message || '').slice(0, 500)}, ${userKey || null})`;
+  } catch (e) { /* loglama hatasi sessiz gecilir */ }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -66,6 +72,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const err = await response.text();
+      await logError(sql, 'ocr', response.status, err, String(user.userId));
       return res.status(response.status).json({ error: err });
     }
 
@@ -81,6 +88,7 @@ export default async function handler(req, res) {
     return res.status(200).json(parsed);
 
   } catch (e) {
+    await logError(sql, 'ocr', 500, e.message, String(user.userId));
     return res.status(500).json({ error: e.message });
   }
 }

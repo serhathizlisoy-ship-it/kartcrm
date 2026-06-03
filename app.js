@@ -1187,6 +1187,14 @@ function renderTeamSection() {
   }
 
   box.innerHTML = html;
+  // Yönetim Paneli (sadece ilk/kurucu kullanıcı)
+  if (window._isAdmin) {
+    var adminBtn = document.createElement('button');
+    adminBtn.textContent = 'Yönetim Paneli';
+    adminBtn.onclick = openAdminPanel;
+    adminBtn.style.cssText = 'width:100%;background:#1a1a2e;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:16px;';
+    box.appendChild(adminBtn);
+  }
   // Tehlike bölgesi: hesabı sil (KVKK silme hakkı)
   var danger = document.createElement('div');
   danger.id = 'danger-zone';
@@ -1204,6 +1212,96 @@ function renderTeamSection() {
     content.appendChild(box);
   }
 }
+
+async function loadAdminStatus() {
+  var data = await apiGet('/api/team-data?type=admin');
+  if (data && data.isAdmin) {
+    window._isAdmin = true;
+    window._adminData = data;
+    renderTeamSection();
+  }
+}
+
+window.openAdminPanel = async function() {
+  var existing = document.getElementById('admin-panel');
+  if (existing) existing.remove();
+  var ov = document.createElement('div');
+  ov.id = 'admin-panel';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#f4f5fb;overflow-y:auto;';
+  ov.innerHTML =
+    '<div style="max-width:520px;margin:0 auto;padding:18px 16px calc(24px + env(safe-area-inset-bottom));">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+        '<div style="font-size:20px;font-weight:800;color:#1a1a2e;">Yönetim Paneli</div>' +
+        '<button onclick="closeAdminPanel()" style="background:#fff;border:none;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer;color:#666;box-shadow:0 1px 4px rgba(0,0,0,.1);">×</button>' +
+      '</div>' +
+      '<div id="admin-body" style="font-size:14px;color:#555;">Yükleniyor…</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+
+  var data = await apiGet('/api/team-data?type=admin');
+  var body = document.getElementById('admin-body');
+  if (!body) return;
+  if (!data || data.error || !data.isAdmin) {
+    body.innerHTML = '<div style="color:#DC2626;">Veri alınamadı.</div>';
+    return;
+  }
+  var s = data.stats || {};
+  var u = data.usage || {};
+  var errs = data.errors || [];
+
+  var creditBanner = data.creditWarning
+    ? '<div style="background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:12px;padding:14px;margin-bottom:14px;font-weight:700;">⚠️ Son hatalarda "bakiye/kontör yetersiz" işareti var. Anthropic Console’dan bakiyeni kontrol et.</div>'
+    : '';
+
+  function card(title, inner) {
+    return '<div style="background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:12px;">' +
+      '<div style="font-size:11px;letter-spacing:1px;color:#4B5FFA;font-weight:700;margin-bottom:10px;">' + title + '</div>' + inner + '</div>';
+  }
+  function statRow(label, val) {
+    return '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px;"><span style="color:#666;">' + label + '</span><span style="font-weight:700;color:#1a1a2e;">' + val + '</span></div>';
+  }
+
+  var usageCard = card('AI / OCR KULLANIMI',
+    statRow('Bugün (son 24s)', (u.today || 0) + ' işlem') +
+    statRow('Bu hafta', (u.week || 0) + ' işlem') +
+    statRow('Son 30 gün', (u.total_30d || 0) + ' işlem') +
+    '<div style="font-size:11px;color:#999;margin-top:8px;">Her işlem ≈ 1-2 sent. Gerçek bakiye için Anthropic Console.</div>'
+  );
+
+  var statsCard = card('SİSTEM',
+    statRow('Kullanıcı', s.users || 0) +
+    statRow('Kişi', s.persons || 0) +
+    statRow('Görüşme', s.meetings || 0) +
+    statRow('Bekleyen hatırlatma', s.pending_reminders || 0)
+  );
+
+  var errInner;
+  if (errs.length === 0) {
+    errInner = '<div style="color:#10a35a;font-size:14px;">Kayıtlı hata yok 🎉</div>';
+  } else {
+    errInner = errs.map(function(e) {
+      var when = e.created_at ? formatDate(e.created_at) : '';
+      return '<div style="border-bottom:1px solid #f0f0f0;padding:8px 0;">' +
+        '<div style="font-size:13px;font-weight:700;color:#B91C1C;">' + escapeHtml(e.endpoint || '?') + ' · ' + (e.status || '') + '</div>' +
+        '<div style="font-size:12px;color:#555;word-break:break-word;">' + escapeHtml((e.message || '').slice(0, 200)) + '</div>' +
+        '<div style="font-size:11px;color:#999;">' + when + '</div>' +
+      '</div>';
+    }).join('');
+  }
+  var errCard = card('SON HATALAR (AI / OCR)', errInner);
+
+  var consoleCard = card('KONTÖR / BAKİYE',
+    '<div style="font-size:13px;color:#555;line-height:1.5;margin-bottom:10px;">Gerçek bakiye ve harcama limiti Anthropic Console’da. Limit + %80 bildirim kurmanı öneririm.</div>' +
+    '<a href="https://console.anthropic.com/settings/billing" target="_blank" style="display:inline-block;background:#4B5FFA;color:#fff;text-decoration:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;">Anthropic Console’u Aç</a>'
+  );
+
+  body.innerHTML = creditBanner + usageCard + statsCard + consoleCard + errCard;
+};
+
+window.closeAdminPanel = function() {
+  var el = document.getElementById('admin-panel');
+  if (el) el.remove();
+};
 
 window.deleteAccount = async function() {
   var pw = prompt('Hesabını ve TÜM verilerini kalıcı olarak silmek üzeresin. Bu işlem geri alınamaz.\n\nOnaylamak için şifreni gir:');
@@ -1833,6 +1931,7 @@ function initApp() {
   loadTeam();
   loadReminders();
   updateNotifStatus();
+  loadAdminStatus();
   // Service worker'i pasif olarak kaydet (push gelirse calissin)
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js').catch(function() {});

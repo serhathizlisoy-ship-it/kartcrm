@@ -60,6 +60,63 @@ export default async function handler(req, res) {
       return res.status(200).json({ contacts, meetings, reminders });
     }
 
+    // ---------- TYPE: ADMIN (sadece ilk/kurucu kullanici) ----------
+    if (type === 'admin') {
+      const [first] = await sql`SELECT id FROM users ORDER BY created_at ASC LIMIT 1`;
+      if (!first || String(first.id) !== String(user.userId)) {
+        return res.status(403).json({ error: 'Yetki yok' });
+      }
+
+      const nowIso = new Date().toISOString();
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [counts] = await sql`
+        SELECT
+          (SELECT COUNT(*)::int FROM users) AS users,
+          (SELECT COUNT(*)::int FROM persons) AS persons,
+          (SELECT COUNT(*)::int FROM meetings) AS meetings,
+          (SELECT COUNT(*)::int FROM reminders WHERE is_sent = false) AS pending_reminders
+      `;
+
+      // AI/OCR kullanimi (rate_limits tablosundan, action='ai_ocr')
+      const [usage] = await sql`
+        SELECT
+          COUNT(*) FILTER (WHERE created_at >= ${dayAgo})::int AS today,
+          COUNT(*) FILTER (WHERE created_at >= ${weekAgo})::int AS week,
+          COUNT(*)::int AS total_30d
+        FROM rate_limits
+        WHERE action = 'ai_ocr' AND created_at >= ${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()}
+      `;
+
+      // Son hatalar (error_logs varsa)
+      let errors = [];
+      let creditWarning = false;
+      try {
+        errors = await sql`
+          SELECT endpoint, status, message, created_at
+          FROM error_logs
+          ORDER BY created_at DESC
+          LIMIT 25
+        `;
+        creditWarning = errors.some(function (e) {
+          const m = (e.message || '').toLowerCase();
+          return m.includes('credit') || m.includes('balance') || m.includes('insufficient') || m.includes('quota');
+        });
+      } catch (e) {
+        errors = [];
+      }
+
+      return res.status(200).json({
+        isAdmin: true,
+        stats: counts || {},
+        usage: usage || {},
+        errors: errors,
+        creditWarning: creditWarning,
+        generatedAt: nowIso
+      });
+    }
+
     // Lider dogrulama (summary ve export tipleri icin)
     const [me] = await sql`SELECT team_id, role FROM users WHERE id = ${user.userId}`;
     if (!me || !me.team_id || me.role !== 'leader') {
