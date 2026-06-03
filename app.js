@@ -215,8 +215,8 @@ function renderContacts() {
   container.innerHTML = groupList.map(function(g) {
     return '<div class="company-group">' +
       '<div class="company-group-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">' +
-        '<div><div class="company-group-name">' + g.name + '</div>' +
-        (g.title ? '<div class="company-group-sector">' + g.title + '</div>' : '') + '</div>' +
+        '<div><div class="company-group-name">' + escapeHtml(g.name || '') + '</div>' +
+        (g.title ? '<div class="company-group-sector">' + escapeHtml(g.title) + '</div>' : '') + '</div>' +
         '<div class="company-group-count">' + g.contacts.length + '</div>' +
       '</div>' +
       '<div class="company-group-list">' +
@@ -224,9 +224,9 @@ function renderContacts() {
           var col = getAvatarColor(c.full_name);
           return '<div class="p-card" data-id="' + c.id + '">' +
             '<div class="p-card-inner">' +
-              '<div class="avatar" style="background:' + col.bg + ';color:' + col.color + ';">' + getInitials(c.full_name) + '</div>' +
-              '<div class="p-info"><div class="p-name">' + c.full_name + '</div>' +
-              (c.title ? '<div class="p-title">' + c.title + '</div>' : '') + '</div>' +
+              '<div class="avatar" style="background:' + col.bg + ';color:' + col.color + ';">' + escapeHtml(getInitials(c.full_name)) + '</div>' +
+              '<div class="p-info"><div class="p-name">' + escapeHtml(c.full_name || '') + '</div>' +
+              (c.title ? '<div class="p-title">' + escapeHtml(c.title) + '</div>' : '') + '</div>' +
               (c.next_action_date ? '<div class="p-alert">⚡</div>' : '') +
             '</div></div>';
         }).join('') +
@@ -272,7 +272,7 @@ function openDetail(id) {
 
   document.getElementById('detail-info').innerHTML = rows.map(function(r) {
     return '<div class="info-row"><span class="info-lbl">' + r.lbl + '</span>' +
-      (r.href ? '<a class="info-val lnk" href="' + r.href + '">' + r.val + '</a>' : '<span class="info-val">' + r.val + '</span>') +
+      (r.href ? '<a class="info-val lnk" href="' + escapeHtml(r.href) + '">' + escapeHtml(r.val) + '</a>' : '<span class="info-val">' + escapeHtml(r.val) + '</span>') +
       '</div>';
   }).join('');
 
@@ -428,7 +428,7 @@ async function renderStep1() {
   companies.forEach(function(c) {
     var sel = c.is_default ? 'selected' : '';
     var act = c.is_default ? 'active' : '';
-    html += '<div class="company-select-card ' + sel + '" data-id="' + c.id + '" data-name="' + c.company_name + '"><div><div class="cs-name">' + c.company_name + '</div><div class="cs-title">' + (c.title || '') + '</div></div><div class="cs-check ' + act + '">✓</div></div>';
+    html += '<div class="company-select-card ' + sel + '" data-id="' + c.id + '" data-name="' + escapeHtml(c.company_name || '') + '"><div><div class="cs-name">' + escapeHtml(c.company_name || '') + '</div><div class="cs-title">' + escapeHtml(c.title || '') + '</div></div><div class="cs-check ' + act + '">✓</div></div>';
   });
   html += '<div class="company-select-card" data-id="personal" data-name="Şahsen"><div><div class="cs-name">Şahsen</div><div class="cs-title">Kişisel</div></div><div class="cs-check">✓</div></div>';
   html += '</div><button class="btn-meeting-next" id="btn-step1-next">İleri →</button>';
@@ -594,10 +594,10 @@ function renderAiResult(editMode) {
       '<div class="step-question">Görüşme Kartı</div>' +
       '<div class="ai-badge-row"><span class="ai-badge" style="background:#FEF3C7;color:#92400E;">Düzenleme Modu</span></div>' +
       ucLabel +
-      '<div class="gc-section-lbl">Görüşme Özeti</div><textarea class="meeting-textarea" id="edit-summary" style="min-height:80px;">' + (r.summary || '') + '</textarea>' +
-      '<div class="gc-section-lbl">Aksiyonlar (her satır ayrı)</div><textarea class="meeting-textarea" id="edit-actions" style="min-height:80px;">' + actionsText + '</textarea>' +
-      '<div class="gc-section-lbl">Hatırlatmalar (YYYY-MM-DD HH:MM metin)</div><textarea class="meeting-textarea" id="edit-reminders" style="min-height:80px;">' + remindersText + '</textarea>' +
-      '<div class="gc-section-lbl">Beklenen Dönüş</div><textarea class="meeting-textarea" id="edit-followup" style="min-height:60px;">' + (r.followup || '') + '</textarea>' +
+      '<div class="gc-section-lbl">Görüşme Özeti</div><textarea class="meeting-textarea" id="edit-summary" style="min-height:80px;">' + escapeHtml(r.summary || '') + '</textarea>' +
+      '<div class="gc-section-lbl">Aksiyonlar (her satır ayrı)</div><textarea class="meeting-textarea" id="edit-actions" style="min-height:80px;">' + escapeHtml(actionsText) + '</textarea>' +
+      '<div class="gc-section-lbl">Hatırlatmalar (YYYY-MM-DD HH:MM metin)</div><textarea class="meeting-textarea" id="edit-reminders" style="min-height:80px;">' + escapeHtml(remindersText) + '</textarea>' +
+      '<div class="gc-section-lbl">Beklenen Dönüş</div><textarea class="meeting-textarea" id="edit-followup" style="min-height:60px;">' + escapeHtml(r.followup || '') + '</textarea>' +
       '<button class="btn-meeting-save" id="btn-apply-edits">Onayla</button>' +
       '<button class="btn-skip" id="btn-cancel-edits">Vazgeç</button>';
     document.getElementById('btn-apply-edits').addEventListener('click', applyEdits);
@@ -606,20 +606,20 @@ function renderAiResult(editMode) {
   }
 
   var html = '<div class="step-question">Görüşme Kartı</div><div class="ai-badge-row"><span class="ai-badge">AI Özeti</span></div>' + ucLabel;
-  if (r.summary) html += '<div class="gc-section-lbl">Görüşme Özeti</div><div class="gc-card"><div class="gc-text">' + r.summary + '</div></div>';
+  if (r.summary) html += '<div class="gc-section-lbl">Görüşme Özeti</div><div class="gc-card"><div class="gc-text">' + escapeHtml(r.summary) + '</div></div>';
   if (r.actions && r.actions.length > 0) {
     html += '<div class="gc-section-lbl">Aksiyonlar</div>';
     r.actions.forEach(function(a, i) {
-      html += '<div class="gc-action-item" id="action-' + i + '"><div class="gc-check ' + (a.done ? 'done' : '') + '"></div><div><div class="gc-action-text">' + a.text + '</div>' + (a.person ? '<div class="gc-action-sub">' + a.person + '</div>' : '') + '</div></div>';
+      html += '<div class="gc-action-item" id="action-' + i + '"><div class="gc-check ' + (a.done ? 'done' : '') + '"></div><div><div class="gc-action-text">' + escapeHtml(a.text || '') + '</div>' + (a.person ? '<div class="gc-action-sub">' + escapeHtml(a.person) + '</div>' : '') + '</div></div>';
     });
   }
   if (r.reminders && r.reminders.length > 0) {
     html += '<div class="gc-section-lbl">Hatırlatmalar</div>';
     r.reminders.forEach(function(rem) {
-      html += '<div class="gc-reminder-item"><div class="gc-rem-dot ' + (rem.time ? 'urgent' : '') + '"></div><div class="gc-rem-date">' + (rem.date ? formatDate(rem.date) : 'Bugün') + (rem.time ? ' ' + rem.time : '') + '</div><div class="gc-rem-text">' + rem.text + '</div></div>';
+      html += '<div class="gc-reminder-item"><div class="gc-rem-dot ' + (rem.time ? 'urgent' : '') + '"></div><div class="gc-rem-date">' + (rem.date ? formatDate(rem.date) : 'Bugün') + (rem.time ? ' ' + rem.time : '') + '</div><div class="gc-rem-text">' + escapeHtml(rem.text || '') + '</div></div>';
     });
   }
-  if (r.followup) html += '<div class="gc-section-lbl">Beklenen Dönüş</div><div class="gc-card"><div class="gc-text">' + r.followup + '</div></div>';
+  if (r.followup) html += '<div class="gc-section-lbl">Beklenen Dönüş</div><div class="gc-card"><div class="gc-text">' + escapeHtml(r.followup) + '</div></div>';
   if (!r.summary && !meetingData.notes) html += '<div class="gc-empty">Not girilmedi. Yine de kaydetmek istiyor musunuz?</div>';
   html += '<button class="btn-meeting-save" id="btn-save-meeting">Kaydet</button>';
   html += '<button class="btn-skip" id="btn-edit-meeting">Düzenle</button>';
@@ -708,14 +708,14 @@ async function loadMeetingCards(personId) {
     var totalActions = actions.length;
     var ucData = m.user_companies_data || [];
     var roleLabel = ucData.length > 0 ? ucData.map(function(uc) { return uc.company_name; }).join(' + ') : 'Şahsen';
-    html += '<div class="gk-card" onclick="openMeetingDetail(\'' + m.id + '\')"><div class="gk-date">' + formatDate(m.created_at) + '</div><span class="gk-role">' + roleLabel + ' adına</span><div class="gk-ozet">' + (m.ai_summary || m.notes || '—') + '</div><div class="gk-meta">';
+    html += '<div class="gk-card" onclick="openMeetingDetail(\'' + m.id + '\')"><div class="gk-date">' + formatDate(m.created_at) + '</div><span class="gk-role">' + escapeHtml(roleLabel) + ' adına</span><div class="gk-ozet">' + escapeHtml(m.ai_summary || m.notes || '—') + '</div><div class="gk-meta">';
     if (totalActions > 0) {
       var cls = (doneActions === totalActions) ? 'gk-tag done' : 'gk-tag active';
       html += '<span class="' + cls + '">⚡ ' + doneActions + '/' + totalActions + ' aksiyon</span>';
     }
     if (reminderCount > 0) html += '<span class="gk-tag active">🔔 ' + reminderCount + ' hatırlatma</span>';
-    if (m.category) html += '<span class="gk-tag">' + m.category + '</span>';
-    if (m.city) html += '<span class="gk-tag">' + m.city + '</span>';
+    if (m.category) html += '<span class="gk-tag">' + escapeHtml(m.category) + '</span>';
+    if (m.city) html += '<span class="gk-tag">' + escapeHtml(m.city) + '</span>';
     html += '</div></div>';
   });
   container.innerHTML = html;
@@ -1077,7 +1077,7 @@ function renderUserCompanies() {
     return;
   }
   list.innerHTML = userCompanies.map(function(c) {
-    return '<div class="p-card" style="margin-bottom:8px;"><div class="p-card-inner"><div class="avatar" style="background:#EEF0FF;color:#4B5FFA;border-radius:10px;font-size:16px;">🏢</div><div class="p-info"><div class="p-name">' + c.company_name + '</div><div class="p-title">' + (c.title || '') + (c.is_default ? ' ⭐' : '') + '</div></div><button onclick="deleteUserCompany(\'' + c.id + '\')" style="margin-left:auto;background:#FEF2F2;color:#DC2626;border:none;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">Sil</button></div></div>';
+    return '<div class="p-card" style="margin-bottom:8px;"><div class="p-card-inner"><div class="avatar" style="background:#EEF0FF;color:#4B5FFA;border-radius:10px;font-size:16px;">🏢</div><div class="p-info"><div class="p-name">' + escapeHtml(c.company_name || '') + '</div><div class="p-title">' + escapeHtml(c.title || '') + (c.is_default ? ' ⭐' : '') + '</div></div><button onclick="deleteUserCompany(\'' + c.id + '\')" style="margin-left:auto;background:#FEF2F2;color:#DC2626;border:none;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">Sil</button></div></div>';
   }).join('');
 }
 
@@ -1165,7 +1165,7 @@ function renderTeamSection() {
     html += '<button onclick="joinTeam()" style="background:#EEF0FF;color:#4B5FFA;border:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;">Katıl</button>';
     html += '</div>';
   } else if (teamData.isLeader) {
-    html += '<div style="font-size:13px;margin-bottom:4px;"><b>' + teamData.name + '</b> · Lider</div>';
+    html += '<div style="font-size:13px;margin-bottom:4px;"><b>' + escapeHtml(teamData.name || '') + '</b> · Lider</div>';
     html += '<button onclick="openTeamSummary()" style="width:100%;background:#4B5FFA;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin:10px 0 14px;">Ekip Özeti</button>';
     html += '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:10px;">Üyelerin bu kodla katılır:</div>';
     html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span style="font-size:22px;font-weight:800;letter-spacing:4px;color:#4B5FFA;background:#EEF0FF;padding:8px 16px;border-radius:10px;">' + teamData.join_code + '</span><button onclick="copyJoinCode(\'' + teamData.join_code + '\')" style="background:#f3f3f5;color:#444;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;">Kopyala</button></div>';
@@ -1178,11 +1178,11 @@ function renderTeamSection() {
         var isMember = m.role !== 'leader';
         var clickAttr = isMember ? ' onclick="viewMemberData(\'' + m.id + '\',\'' + (m.full_name || m.email).replace(/['"]/g, "") + '\')" style="cursor:pointer;"' : '';
         var arrow = isMember ? '<div style="margin-left:auto;color:#4B5FFA;font-size:18px;font-weight:700;">›</div>' : '';
-        return '<div' + clickAttr + ' style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line,#f0f0f0);' + (isMember ? 'cursor:pointer;' : '') + '"><div class="avatar" style="width:32px;height:32px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + getInitials(m.full_name || m.email) + '</div><div><div style="font-size:13px;font-weight:700;">' + (m.full_name || m.email) + tag + '</div><div style="font-size:11px;color:var(--text3,#888);">' + m.email + '</div></div>' + arrow + '</div>';
+        return '<div' + clickAttr + ' style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line,#f0f0f0);' + (isMember ? 'cursor:pointer;' : '') + '"><div class="avatar" style="width:32px;height:32px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + escapeHtml(getInitials(m.full_name || m.email)) + '</div><div><div style="font-size:13px;font-weight:700;">' + escapeHtml(m.full_name || m.email) + tag + '</div><div style="font-size:11px;color:var(--text3,#888);">' + escapeHtml(m.email || '') + '</div></div>' + arrow + '</div>';
       }).join('');
     }
   } else {
-    html += '<div style="font-size:13px;"><b>' + teamData.name + '</b> ekibinin üyesisin.</div>';
+    html += '<div style="font-size:13px;"><b>' + escapeHtml(teamData.name || '') + '</b> ekibinin üyesisin.</div>';
     html += '<div style="font-size:12px;color:var(--text3,#888);margin-top:4px;">Görüşmelerin ekip liderinle paylaşılır.</div>';
   }
 
@@ -1314,8 +1314,8 @@ async function loadTeamSummary() {
     var clickAttr = isLeaderRow ? '' : ' onclick="closeTeamSummary();viewMemberData(\'' + m.id + '\',\'' + nm + '\')" style="cursor:pointer;"';
     return '<div' + clickAttr + ' style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
-        '<div class="avatar" style="width:34px;height:34px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + getInitials(m.full_name || m.email) + '</div>' +
-        '<div style="flex:1;"><div style="font-size:14px;font-weight:700;">' + (m.full_name || m.email) + (isLeaderRow ? ' · Lider' : '') + '</div><div style="font-size:11px;color:#888;">' + m.email + '</div></div>' +
+        '<div class="avatar" style="width:34px;height:34px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + escapeHtml(getInitials(m.full_name || m.email)) + '</div>' +
+        '<div style="flex:1;"><div style="font-size:14px;font-weight:700;">' + escapeHtml(m.full_name || m.email) + (isLeaderRow ? ' · Lider' : '') + '</div><div style="font-size:11px;color:#888;">' + escapeHtml(m.email || '') + '</div></div>' +
         (isLeaderRow ? '' : '<div style="color:#4B5FFA;font-size:18px;font-weight:700;">›</div>') +
       '</div>' +
       '<div style="display:flex;justify-content:space-around;text-align:center;border-top:1px solid #f0f0f0;padding-top:10px;">' +
@@ -1654,7 +1654,7 @@ function renderReminders() {
         var timeTxt = r.reminder_time ? (' · ' + String(r.reminder_time).slice(0, 5)) : '';
         return '<div class="rem-item-row">' +
           '<div class="rem-item-dot"></div>' +
-          '<div class="rem-item-text">' + (r.message || '') + dateTxt + timeTxt + '</div>' +
+          '<div class="rem-item-text">' + escapeHtml(r.message || '') + dateTxt + timeTxt + '</div>' +
           '<button class="rem-item-tick" onclick="markReminderDone(\'' + r.id + '\', event)" title="Tamamlandı">✓</button>' +
         '</div>';
       }).join('') + '</div>';
@@ -1662,7 +1662,7 @@ function renderReminders() {
     return '<div class="rem-group">' +
       '<div class="rem-group-head" onclick="toggleReminderGroup(\'' + key + '\')">' +
         '<span class="rem-group-arrow">' + arrow + '</span>' +
-        '<span class="rem-group-name">' + g.name + '</span>' +
+        '<span class="rem-group-name">' + escapeHtml(g.name || '') + '</span>' +
         '<span class="rem-group-badge">' + g.items.length + '</span>' +
       '</div>' +
       itemsHtml +
