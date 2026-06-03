@@ -1070,6 +1070,7 @@ function renderTeamSection() {
     html += '</div>';
   } else if (teamData.isLeader) {
     html += '<div style="font-size:13px;margin-bottom:4px;"><b>' + teamData.name + '</b> · Lider</div>';
+    html += '<button onclick="openTeamSummary()" style="width:100%;background:#4B5FFA;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin:10px 0 14px;">Ekip Özeti</button>';
     html += '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:10px;">Üyelerin bu kodla katılır:</div>';
     html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span style="font-size:22px;font-weight:800;letter-spacing:4px;color:#4B5FFA;background:#EEF0FF;padding:8px 16px;border-radius:10px;">' + teamData.join_code + '</span><button onclick="copyJoinCode(\'' + teamData.join_code + '\')" style="background:#f3f3f5;color:#444;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;">Kopyala</button></div>';
     html += '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:6px;">Ekip üyeleri (' + teamData.members.length + ')</div>';
@@ -1129,6 +1130,92 @@ window.copyJoinCode = function(code) {
     showToast(code);
   }
 };
+
+// ---- EKİP ÖZETİ (lider panosu) ----
+window.openTeamSummary = function() {
+  closeTeamSummary();
+  var ov = document.createElement('div');
+  ov.id = 'team-summary-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#eef0f6;overflow-y:auto;';
+  ov.innerHTML =
+    '<div style="position:sticky;top:0;background:#4B5FFA;color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;z-index:1;">' +
+      '<div style="font-size:18px;font-weight:800;">Ekip Özeti</div>' +
+      '<button onclick="closeTeamSummary()" style="background:rgba(255,255,255,0.25);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:700;cursor:pointer;">Kapat</button>' +
+    '</div>' +
+    '<div style="padding:16px 18px;">' +
+      '<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">' +
+        '<div><div style="font-size:11px;color:#888;margin-bottom:4px;">Başlangıç</div><input id="ts-from" type="date" style="padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></div>' +
+        '<div><div style="font-size:11px;color:#888;margin-bottom:4px;">Bitiş</div><input id="ts-to" type="date" style="padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></div>' +
+        '<button onclick="applyTeamSummaryRange()" style="background:#4B5FFA;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;">Uygula</button>' +
+      '</div>' +
+      '<div id="ts-body"><div style="text-align:center;color:#888;padding:30px;">Yükleniyor…</div></div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  loadTeamSummary();
+};
+
+window.closeTeamSummary = function() {
+  var o = document.getElementById('team-summary-overlay');
+  if (o) o.remove();
+};
+
+window.applyTeamSummaryRange = function() {
+  var f = document.getElementById('ts-from');
+  var t = document.getElementById('ts-to');
+  loadTeamSummary(f ? f.value : '', t ? t.value : '');
+};
+
+async function loadTeamSummary(from, to) {
+  var qs = [];
+  if (from) qs.push('from=' + from);
+  if (to) qs.push('to=' + to);
+  var data = await apiGet('/api/team-summary' + (qs.length ? '?' + qs.join('&') : ''));
+  var body = document.getElementById('ts-body');
+  if (!body) return;
+  if (!data || data.error) {
+    body.innerHTML = '<div style="color:#DC2626;padding:20px;">' + ((data && data.error) || 'Yüklenemedi') + '</div>';
+    return;
+  }
+  var fEl = document.getElementById('ts-from');
+  var tEl = document.getElementById('ts-to');
+  if (fEl && data.from) fEl.value = data.from;
+  if (tEl && data.to) tEl.value = data.to;
+  var T = data.totals || {};
+  var html = '';
+  html += '<div style="background:#fff;border-radius:12px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-around;text-align:center;">' +
+    tsStat('Görüşme (dönem)', T.meetings_range) +
+    tsStat('Açık aksiyon', T.open_actions) +
+    tsStat('Bekleyen htr.', T.pending_reminders) +
+    '</div>';
+  html += (data.members || []).map(function(m) {
+    var isLeaderRow = m.role === 'leader';
+    var nm = (m.full_name || m.email).replace(/['"]/g, '');
+    var clickAttr = isLeaderRow ? '' : ' onclick="closeTeamSummary();viewMemberData(\'' + m.id + '\',\'' + nm + '\')" style="cursor:pointer;"';
+    return '<div' + clickAttr + ' style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+        '<div class="avatar" style="width:34px;height:34px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + getInitials(m.full_name || m.email) + '</div>' +
+        '<div style="flex:1;"><div style="font-size:14px;font-weight:700;">' + (m.full_name || m.email) + (isLeaderRow ? ' · Lider' : '') + '</div><div style="font-size:11px;color:#888;">' + m.email + '</div></div>' +
+        (isLeaderRow ? '' : '<div style="color:#4B5FFA;font-size:18px;font-weight:700;">›</div>') +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-around;text-align:center;border-top:1px solid #f0f0f0;padding-top:10px;">' +
+        tsMini('Bugün', m.meetings_today) +
+        tsMini('Dönem', m.meetings_range) +
+        tsMini('Açık aks.', m.open_actions) +
+        tsMini('Htr.', m.pending_reminders) +
+        tsMini('Toplam', m.meetings_total) +
+      '</div>' +
+    '</div>';
+  }).join('');
+  body.innerHTML = html;
+}
+
+function tsStat(label, val) {
+  return '<div><div style="font-size:22px;font-weight:800;color:#4B5FFA;">' + (val || 0) + '</div><div style="font-size:11px;color:#888;">' + label + '</div></div>';
+}
+
+function tsMini(label, val) {
+  return '<div><div style="font-size:16px;font-weight:800;">' + (val || 0) + '</div><div style="font-size:10px;color:#888;">' + label + '</div></div>';
+}
 
 // ---- EXPORT ----
 function exportExcel() {
