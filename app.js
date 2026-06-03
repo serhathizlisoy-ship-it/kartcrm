@@ -941,6 +941,90 @@ window.deleteUserCompany = async function(id) {
   showToast('Şirket silindi');
 };
 
+// ---- EKİP ----
+var teamData = null;
+
+async function loadTeam() {
+  var data = await apiGet('/api/teams');
+  if (!data) return;
+  teamData = data.team;
+  renderTeamSection();
+}
+
+function renderTeamSection() {
+  var screen = document.getElementById('screen-profile');
+  if (!screen) return;
+  var existing = document.getElementById('team-section');
+  if (existing) existing.remove();
+
+  var box = document.createElement('div');
+  box.id = 'team-section';
+  box.style.cssText = 'margin-top:18px;padding-top:18px;border-top:1px solid var(--line,#eee);';
+
+  var html = '<div style="font-weight:800;font-size:15px;margin-bottom:10px;color:var(--text1,#1a1a2e);">Ekip</div>';
+
+  if (!teamData) {
+    html += '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:12px;">Bir ekip kur veya katılım kodu ile mevcut bir ekibe katıl.</div>';
+    html += '<input id="team-name-input" placeholder="Ekip adı" style="width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--line,#ddd);border-radius:10px;font-size:14px;margin-bottom:8px;">';
+    html += '<button onclick="createTeam()" style="width:100%;background:#4B5FFA;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">Ekip Oluştur</button>';
+    html += '<div style="display:flex;gap:8px;align-items:center;">';
+    html += '<input id="team-code-input" placeholder="Katılım kodu" maxlength="6" style="flex:1;box-sizing:border-box;text-transform:uppercase;padding:11px 12px;border:1px solid var(--line,#ddd);border-radius:10px;font-size:14px;letter-spacing:2px;">';
+    html += '<button onclick="joinTeam()" style="background:#EEF0FF;color:#4B5FFA;border:none;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;">Katıl</button>';
+    html += '</div>';
+  } else if (teamData.isLeader) {
+    html += '<div style="font-size:13px;margin-bottom:4px;"><b>' + teamData.name + '</b> · Lider</div>';
+    html += '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:10px;">Üyelerin bu kodla katılır:</div>';
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span style="font-size:22px;font-weight:800;letter-spacing:4px;color:#4B5FFA;background:#EEF0FF;padding:8px 16px;border-radius:10px;">' + teamData.join_code + '</span><button onclick="copyJoinCode(\'' + teamData.join_code + '\')" style="background:#f3f3f5;color:#444;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;">Kopyala</button></div>';
+    html += '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:6px;">Ekip üyeleri (' + teamData.members.length + ')</div>';
+    if (teamData.members.length === 0) {
+      html += '<div style="font-size:12px;color:var(--text3,#888);">Henüz üye katılmadı.</div>';
+    } else {
+      html += teamData.members.map(function(m) {
+        var tag = m.role === 'leader' ? ' · Lider' : '';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line,#f0f0f0);"><div class="avatar" style="width:32px;height:32px;font-size:13px;background:#EEF0FF;color:#4B5FFA;">' + getInitials(m.full_name || m.email) + '</div><div><div style="font-size:13px;font-weight:700;">' + (m.full_name || m.email) + tag + '</div><div style="font-size:11px;color:var(--text3,#888);">' + m.email + '</div></div></div>';
+      }).join('');
+    }
+  } else {
+    html += '<div style="font-size:13px;"><b>' + teamData.name + '</b> ekibinin üyesisin.</div>';
+    html += '<div style="font-size:12px;color:var(--text3,#888);margin-top:4px;">Görüşmelerin ekip liderinle paylaşılır.</div>';
+  }
+
+  box.innerHTML = html;
+  screen.appendChild(box);
+}
+
+window.createTeam = async function() {
+  var input = document.getElementById('team-name-input');
+  var name = input ? input.value.trim() : '';
+  if (!name) { showToast('Ekip adı gir'); return; }
+  var data = await apiPost('/api/teams', { action: 'create', name: name });
+  if (!data) return;
+  if (data.error) { showToast(data.error); return; }
+  teamData = data.team;
+  renderTeamSection();
+  showToast('✓ Ekip oluşturuldu');
+};
+
+window.joinTeam = async function() {
+  var input = document.getElementById('team-code-input');
+  var code = input ? input.value.trim().toUpperCase() : '';
+  if (!code) { showToast('Katılım kodu gir'); return; }
+  var data = await apiPost('/api/teams', { action: 'join', code: code });
+  if (!data) return;
+  if (data.error) { showToast(data.error); return; }
+  teamData = data.team;
+  renderTeamSection();
+  showToast('✓ Ekibe katıldın');
+};
+
+window.copyJoinCode = function(code) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(function() { showToast('Kod kopyalandı'); }).catch(function() { showToast(code); });
+  } else {
+    showToast(code);
+  }
+};
+
 // ---- EXPORT ----
 function exportExcel() {
   if (!contacts.length) { showToast('Henüz kişi yok'); return; }
@@ -1150,6 +1234,7 @@ function initApp() {
   showScreen('screen-home');
   loadContacts();
   loadUserCompanies();
+  loadTeam();
   loadReminders();
   updateNotifStatus();
   // Service worker'i pasif olarak kaydet (push gelirse calissin)
