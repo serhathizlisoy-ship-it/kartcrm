@@ -757,7 +757,84 @@ function renderMeetingDetail() {
   } else {
     if (notesSection) notesSection.style.display = 'none';
   }
+  ensurePdfButton();
 }
+
+function ensurePdfButton() {
+  var scroll = document.querySelector('#screen-meeting-detail .md-scroll');
+  if (!scroll || document.getElementById('md-pdf-btn-wrap')) return;
+  var wrap = document.createElement('div');
+  wrap.id = 'md-pdf-btn-wrap';
+  wrap.style.cssText = 'padding:4px 0 28px;';
+  wrap.innerHTML = '<button onclick="printMeetingPdf()" style="width:100%;background:#4B5FFA;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">PDF / Paylaş</button>';
+  scroll.appendChild(wrap);
+}
+
+window.printMeetingPdf = function() {
+  var m = _currentMeeting;
+  if (!m) return;
+  var personName = '';
+  var dn = document.getElementById('detail-name');
+  if (dn) personName = dn.textContent || '';
+  var ucData = m.user_companies_data || [];
+  var roleLabel = ucData.length ? ucData.map(function(uc) { return uc.company_name; }).join(' + ') : 'Şahsen';
+  var meta = [roleLabel + ' adına', m.city, m.category].filter(Boolean).join(' · ');
+  var actions = Array.isArray(m.ai_actions) ? m.ai_actions : [];
+  var rems = _currentMeetingReminders || [];
+
+  var actionsHtml = actions.length ? actions.map(function(a) {
+    var st = a.done ? '✓' : '○';
+    var note = (a.done && a.note) ? ' — <i>' + escapeHtml(a.note) + '</i>' : '';
+    return '<li style="margin-bottom:6px;' + (a.done ? 'color:#888;text-decoration:line-through;' : '') + '">' + st + ' ' + escapeHtml(a.text || '') + note + '</li>';
+  }).join('') : '<li style="color:#888;">Aksiyon yok</li>';
+
+  var remsHtml = rems.length ? rems.map(function(r) {
+    var d = r.reminder_date ? formatDate(r.reminder_date) : '';
+    var t = r.reminder_time ? ' · ' + String(r.reminder_time).slice(0, 5) : '';
+    return '<li style="margin-bottom:6px;">' + escapeHtml(r.message || '') + (d ? ' <span style="color:#666;">(' + d + t + ')</span>' : '') + '</li>';
+  }).join('') : '<li style="color:#888;">Hatırlatma yok</li>';
+
+  var html = '<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>Görüşme Kartı</title>' +
+    '<style>' +
+    '*{box-sizing:border-box;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}' +
+    'body{margin:0;padding:32px;color:#1a1a2e;}' +
+    'h1{font-size:22px;margin:0 0 4px;}' +
+    '.sub{color:#555;font-size:13px;margin-bottom:20px;line-height:1.5;}' +
+    '.card{border:1px solid #e3e3ec;border-radius:10px;padding:14px 16px;margin-bottom:12px;}' +
+    '.lbl{font-size:11px;letter-spacing:1px;color:#4B5FFA;font-weight:700;margin-bottom:8px;}' +
+    'ul{margin:0;padding-left:18px;font-size:14px;line-height:1.5;}' +
+    'p{margin:0;font-size:14px;line-height:1.55;white-space:pre-wrap;}' +
+    '.foot{margin-top:24px;color:#999;font-size:11px;text-align:center;}' +
+    '@media print{body{padding:8px;}}' +
+    '</style></head><body>' +
+    '<h1>Görüşme Kartı</h1>' +
+    '<div class="sub"><b>' + escapeHtml(personName) + '</b> · ' + escapeHtml(formatDate(m.created_at)) + '<br>' + escapeHtml(meta) + '</div>' +
+    '<div class="card"><div class="lbl">ÖZET</div><p>' + escapeHtml(m.ai_summary || '—') + '</p></div>' +
+    '<div class="card"><div class="lbl">AKSİYONLAR</div><ul>' + actionsHtml + '</ul></div>' +
+    '<div class="card"><div class="lbl">HATIRLATMALAR</div><ul>' + remsHtml + '</ul></div>' +
+    (m.notes && m.notes.trim() ? '<div class="card"><div class="lbl">GÖRÜŞME NOTU</div><p>' + escapeHtml(m.notes) + '</p></div>' : '') +
+    '<div class="foot">KartCRM · ' + escapeHtml(formatDate(new Date().toISOString())) + '</div>' +
+    '</body></html>';
+
+  var old = document.getElementById('pdf-print-frame');
+  if (old) old.remove();
+  var iframe = document.createElement('iframe');
+  iframe.id = 'pdf-print-frame';
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(iframe);
+  var doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  setTimeout(function() {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      showToast('Yazdırma açılamadı');
+    }
+  }, 350);
+};
 
 function renderMeetingActions() {
   var actions = _currentMeeting.ai_actions || [];
