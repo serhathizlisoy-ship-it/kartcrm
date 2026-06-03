@@ -815,11 +815,12 @@ async function renderMeetingReminders() {
   if (section) section.style.display = 'block';
   list.innerHTML = rows.map(function(r) {
     var dateTxt = r.reminder_date ? formatDate(r.reminder_date) : '';
+    var timeTxt = r.reminder_time ? (' · ' + String(r.reminder_time).slice(0, 5)) : '';
     return '<div class="md-rem-row" data-rid="' + r.id + '">' +
       '<div class="md-rem-dot"></div>' +
       '<div class="md-rem-body">' +
         '<div class="md-rem-text">' + escapeHtml(r.message || '') + '</div>' +
-        (dateTxt ? '<div class="md-rem-date">' + dateTxt + '</div>' : '') +
+        (dateTxt ? '<div class="md-rem-date">' + dateTxt + timeTxt + '</div>' : '') +
       '</div>' +
       '<button class="md-action-del" onclick="editReminder(\'' + r.id + '\')" title="Düzenle" style="color:#4B5FFA;">✎</button>' +
       '<button class="md-action-del" onclick="deleteReminder(\'' + r.id + '\')" title="Sil">×</button>' +
@@ -833,10 +834,15 @@ window.editReminder = function(id) {
   var row = document.querySelector('.md-rem-row[data-rid="' + id + '"]');
   if (!row) return;
   var d = (r.reminder_date || '').toString().slice(0, 10);
+  var t = r.reminder_time ? String(r.reminder_time).slice(0, 5) : '';
   row.innerHTML =
     '<div class="md-rem-body" style="width:100%;">' +
       '<input id="rem-edit-msg-' + id + '" value="' + escapeHtml(r.message || '') + '" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:6px;">' +
-      '<input id="rem-edit-date-' + id + '" type="date" value="' + d + '" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:8px;">' +
+      '<div style="display:flex;gap:6px;margin-bottom:8px;">' +
+        '<input id="rem-edit-date-' + id + '" type="date" value="' + d + '" style="flex:1;box-sizing:border-box;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;">' +
+        '<input id="rem-edit-time-' + id + '" type="time" value="' + t + '" style="width:110px;box-sizing:border-box;padding:9px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;" placeholder="Saat">' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text3,#999);margin-bottom:8px;">Saat opsiyonel — boş bırakabilirsin.</div>' +
       '<div style="display:flex;gap:8px;">' +
         '<button onclick="saveReminderEdit(\'' + id + '\')" style="flex:1;background:#4B5FFA;color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">Kaydet</button>' +
         '<button onclick="renderMeetingReminders()" style="background:#f3f3f5;color:#444;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;">İptal</button>' +
@@ -847,10 +853,12 @@ window.editReminder = function(id) {
 window.saveReminderEdit = async function(id) {
   var msgEl = document.getElementById('rem-edit-msg-' + id);
   var dateEl = document.getElementById('rem-edit-date-' + id);
+  var timeEl = document.getElementById('rem-edit-time-' + id);
   var message = msgEl ? msgEl.value.trim() : '';
   var reminder_date = dateEl ? dateEl.value : '';
+  var reminder_time = timeEl ? timeEl.value : '';
   if (!message) { showToast('Hatırlatma metni boş olamaz'); return; }
-  var data = await apiPut('/api/reminders?id=' + id + (viewingMemberId ? '&member_id=' + viewingMemberId : ''), { message: message, reminder_date: reminder_date || null });
+  var data = await apiPut('/api/reminders?id=' + id + (viewingMemberId ? '&member_id=' + viewingMemberId : ''), { message: message, reminder_date: reminder_date || null, reminder_time: reminder_time || null });
   if (data && data.error) { showToast(data.error); return; }
   showToast('✓ Hatırlatma güncellendi');
   renderMeetingReminders();
@@ -1176,9 +1184,10 @@ function renderReminders() {
     if (isOpen) {
       itemsHtml = '<div class="rem-items">' + g.items.map(function(r) {
         var dateTxt = r.reminder_date ? ' — ' + formatDate(r.reminder_date) : '';
+        var timeTxt = r.reminder_time ? (' · ' + String(r.reminder_time).slice(0, 5)) : '';
         return '<div class="rem-item-row">' +
           '<div class="rem-item-dot"></div>' +
-          '<div class="rem-item-text">' + (r.message || '') + dateTxt + '</div>' +
+          '<div class="rem-item-text">' + (r.message || '') + dateTxt + timeTxt + '</div>' +
           '<button class="rem-item-tick" onclick="markReminderDone(\'' + r.id + '\', event)" title="Tamamlandı">✓</button>' +
         '</div>';
       }).join('') + '</div>';

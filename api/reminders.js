@@ -71,19 +71,21 @@ export default async function handler(req, res) {
     if (!id) return res.status(400).json({ error: 'id gerekli' });
     const targetId = await resolveTargetUserId(sql, user.userId, req.query.member_id);
     if (!targetId) return res.status(403).json({ error: 'Yetki yok' });
-    const { reminder_date, message } = req.body || {};
+    const { reminder_date, message, reminder_time } = req.body || {};
     try {
-      // Duzenleme: tarih ve/veya metin gonderildiyse guncelle
-      if (reminder_date !== undefined || message !== undefined) {
+      // Duzenleme: tarih, metin ve/veya saat gonderildiyse guncelle
+      if (reminder_date !== undefined || message !== undefined || reminder_time !== undefined) {
         const [current] = await sql`
-          SELECT reminder_date, message FROM reminders
+          SELECT reminder_date, message, reminder_time FROM reminders
           WHERE id = ${id} AND user_id = ${targetId}
         `;
         if (!current) return res.status(404).json({ error: 'Bulunamadi' });
         const newDate = reminder_date !== undefined ? reminder_date : current.reminder_date;
         const newMsg = message !== undefined ? message : current.message;
+        // reminder_time gonderildiyse: dolu ise set et, bos string/null ise NULL yap
+        const newTime = reminder_time !== undefined ? (reminder_time || null) : current.reminder_time;
         await sql`
-          UPDATE reminders SET reminder_date = ${newDate}, message = ${newMsg}
+          UPDATE reminders SET reminder_date = ${newDate}, message = ${newMsg}, reminder_time = ${newTime}
           WHERE id = ${id} AND user_id = ${targetId}
         `;
         return res.status(200).json({ success: true });
