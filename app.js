@@ -1187,6 +1187,16 @@ function renderTeamSection() {
   }
 
   box.innerHTML = html;
+  // Tehlike bölgesi: hesabı sil (KVKK silme hakkı)
+  var danger = document.createElement('div');
+  danger.id = 'danger-zone';
+  danger.style.cssText = 'margin-top:24px;padding-top:16px;border-top:1px solid var(--line,#eee);';
+  danger.innerHTML =
+    '<div class="sec-lbl" style="margin-bottom:8px;color:#DC2626;">Hesap</div>' +
+    '<div style="font-size:12px;color:var(--text3,#888);margin-bottom:10px;">Hesabını silersen tüm kişilerin, görüşmelerin ve hatırlatmaların kalıcı olarak silinir. Bu işlem geri alınamaz.</div>' +
+    '<button onclick="deleteAccount()" style="width:100%;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;">Hesabımı Sil</button>';
+  box.appendChild(danger);
+
   var logoutBtn = document.getElementById('btn-logout2');
   if (logoutBtn && logoutBtn.parentElement === content) {
     content.insertBefore(box, logoutBtn);
@@ -1194,6 +1204,19 @@ function renderTeamSection() {
     content.appendChild(box);
   }
 }
+
+window.deleteAccount = async function() {
+  var pw = prompt('Hesabını ve TÜM verilerini kalıcı olarak silmek üzeresin. Bu işlem geri alınamaz.\n\nOnaylamak için şifreni gir:');
+  if (pw === null) return;
+  if (!pw) { showToast('Şifre gerekli'); return; }
+  var data = await apiPost('/api/teams', { action: 'delete_account', password: pw });
+  if (!data) return;
+  if (data.error) { showToast(data.error); return; }
+  if (data.success) {
+    showToast('Hesabın silindi');
+    setTimeout(function() { logout(); }, 800);
+  }
+};
 
 window.createTeam = async function() {
   var input = document.getElementById('team-name-input');

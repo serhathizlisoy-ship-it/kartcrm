@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { jwtVerify } from 'jose';
+import bcrypt from 'bcryptjs';
 
 async function getUser(req) {
   const auth = req.headers.authorization;
@@ -65,7 +66,50 @@ export default async function handler(req, res) {
 
   // POST: action=create (ekip kur) veya action=join (koda katil)
   if (req.method === 'POST') {
-    const { action, name, code } = req.body || {};
+    const { action, name, code, password } = req.body || {};
+
+    // action=delete_account: hesabi ve tum veriyi kalici sil (KVKK silme hakki)
+    if (action === 'delete_account') {
+      if (!password) return res.status(400).json({ error: 'Şifre gerekli' });
+      try {
+        const [me] = await sql`SELECT id, email, password_hash, team_id, role FROM users WHERE id = ${user.userId}`;
+        if (!me) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+
+        const valid = await bcrypt.compare(password, me.password_hash);
+        if (!valid) return res.status(401).json({ error: 'Şifre hatalı' });
+
+        // Lider ve ekipte baska uye varsa silmeyi engelle
+        let leaderWithMembers = false;
+        if (me.role === 'leader' && me.team_id) {
+          const [{ cnt }] = await sql`SELECT COUNT(*)::int AS cnt FROM users WHERE team_id = ${me.team_id} AND id != ${me.id}`;
+          if (cnt > 0) leaderWithMembers = true;
+        }
+        if (leaderWithMembers) {
+          return res.status(400).json({ error: 'Ekipte üyeler var. Önce tüm üyeleri çıkarın, sonra hesabınızı silebilirsiniz.' });
+        }
+
+        const uid = me.id;
+        // Cocuk -> ebeveyn sirasiyla sil
+        await sql`DELETE FROM reminders WHERE user_id = ${uid}`;
+        await sql`DELETE FROM meetings WHERE user_id = ${uid}`;
+        await sql`DELETE FROM person_companies WHERE person_id IN (SELECT id FROM persons WHERE user_id = ${uid})`;
+        await sql`DELETE FROM persons WHERE user_id = ${uid}`;
+        await sql`DELETE FROM companies WHERE user_id = ${uid}`;
+        await sql`DELETE FROM user_companies WHERE user_id = ${uid}`;
+        await sql`DELETE FROM push_tokens WHERE user_id = ${uid}`;
+        await sql`DELETE FROM rate_limits WHERE rl_key = ${String(uid)} OR rl_key = ${'login:' + String(me.email).toLowerCase()}`;
+        // Lider ve uye yoksa ekibi de sil (once baglari kopar -> FK guvenligi)
+        if (me.role === 'leader' && me.team_id) {
+          await sql`UPDATE users SET team_id = NULL, role = NULL WHERE id = ${uid}`;
+          await sql`DELETE FROM teams WHERE id = ${me.team_id}`;
+        }
+        await sql`DELETE FROM users WHERE id = ${uid}`;
+
+        return res.status(200).json({ success: true });
+      } catch (e) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
 
     // Zaten bir ekipte mi? (cift kayit engeli)
     const [me] = await sql`SELECT team_id FROM users WHERE id = ${user.userId}`;
