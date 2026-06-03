@@ -696,7 +696,7 @@ async function loadMeetingCards(personId) {
   var html = '';
   meetings.forEach(function(m) {
     var actions = Array.isArray(m.ai_actions) ? m.ai_actions : (m.ai_actions ? JSON.parse(m.ai_actions) : []);
-    var reminders = Array.isArray(m.ai_reminders) ? m.ai_reminders : (m.ai_reminders ? JSON.parse(m.ai_reminders) : []);
+    var reminderCount = (typeof m.reminder_count === 'number') ? m.reminder_count : (Array.isArray(m.ai_reminders) ? m.ai_reminders.length : 0);
     var doneActions = actions.filter(function(a) { return a.done; }).length;
     var totalActions = actions.length;
     var ucData = m.user_companies_data || [];
@@ -706,7 +706,7 @@ async function loadMeetingCards(personId) {
       var cls = (doneActions === totalActions) ? 'gk-tag done' : 'gk-tag active';
       html += '<span class="' + cls + '">⚡ ' + doneActions + '/' + totalActions + ' aksiyon</span>';
     }
-    if (reminders.length > 0) html += '<span class="gk-tag active">🔔 ' + reminders.length + ' hatırlatma</span>';
+    if (reminderCount > 0) html += '<span class="gk-tag active">🔔 ' + reminderCount + ' hatırlatma</span>';
     if (m.category) html += '<span class="gk-tag">' + m.category + '</span>';
     if (m.city) html += '<span class="gk-tag">' + m.city + '</span>';
     html += '</div></div>';
@@ -1090,6 +1090,7 @@ window.viewMemberData = function(memberId, memberName) {
   viewingMemberId = memberId;
   viewingMemberName = memberName;
   showMemberBanner(memberName);
+  applyMemberViewUI();
   showScreen('screen-home');
   loadContacts();
   loadReminders();
@@ -1099,10 +1100,21 @@ window.exitMemberView = function() {
   viewingMemberId = null;
   viewingMemberName = null;
   removeMemberBanner();
+  applyMemberViewUI();
   showScreen('screen-home');
   loadContacts();
   loadReminders();
 };
+
+function applyMemberViewUI() {
+  var hide = !!viewingMemberId;
+  ['fab-add', 'btn-add-meeting', 'btn-delete-top', 'btn-edit'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = hide ? 'none' : '';
+  });
+  var mdDel = document.querySelector('#screen-meeting-detail .md-del');
+  if (mdDel) mdDel.style.display = hide ? 'none' : '';
+}
 
 function showMemberBanner(name) {
   removeMemberBanner();

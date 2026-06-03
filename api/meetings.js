@@ -46,7 +46,11 @@ export default async function handler(req, res) {
             WHERE uc.id::text = ANY(
               SELECT jsonb_array_elements_text(m.user_company_ids)
             )
-          ) as user_companies_data
+          ) as user_companies_data,
+          (
+            SELECT COUNT(*)::int FROM reminders r
+            WHERE r.meeting_id = m.id AND r.is_sent = false
+          ) as reminder_count
         FROM meetings m
         WHERE m.person_id = ${person_id} AND m.user_id = ${targetId}
         ORDER BY m.created_at DESC
