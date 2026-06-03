@@ -1192,7 +1192,7 @@ function tsRange(period) {
 
 async function loadTeamSummary() {
   var r = tsRange(_tsPeriod);
-  var data = await apiGet('/api/team-summary?from=' + r.from + '&to=' + r.to);
+  var data = await apiGet('/api/team-data?type=summary&from=' + r.from + '&to=' + r.to);
   var body = document.getElementById('ts-body');
   if (!body) return;
   if (!data || data.error) {
@@ -1245,7 +1245,7 @@ window.exportTeamExcel = async function() {
   var r = tsRange(_tsPeriod);
   var periodLabel = { today: 'Bugun', week: 'Bu hafta', month: 'Bu ay', all: 'Tumu' }[_tsPeriod] || '';
   showToast('Rapor hazırlanıyor…');
-  var data = await apiGet('/api/team-export?from=' + r.from + '&to=' + r.to);
+  var data = await apiGet('/api/team-data?type=export&from=' + r.from + '&to=' + r.to);
   if (!data || data.error) { showToast((data && data.error) || 'Rapor alınamadı'); return; }
 
   var meetings = data.meetings || [];
