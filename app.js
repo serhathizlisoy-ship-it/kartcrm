@@ -2033,3 +2033,117 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', function() { showScreen(btn.dataset.screen); });
   });
 });
+
+// ---- PWA ANA EKRANA EKLEME YÖNERGESİ ----
+(function() {
+  var _deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    _deferredPrompt = e;
+  });
+
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+
+  var shareIco = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4B5FFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg>';
+  var plusIco = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4B5FFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+
+  window.closeInstallGuide = function() {
+    var el = document.getElementById('install-guide');
+    if (el) el.remove();
+  };
+
+  window.showInstallGuide = function() {
+    var existing = document.getElementById('install-guide');
+    if (existing) existing.remove();
+
+    var bodyHtml;
+    if (isIOS()) {
+      bodyHtml =
+        '<div style="font-size:14px;color:#555;margin-bottom:16px;">KartCRM’i bir uygulama gibi açmak için ana ekranına ekle:</div>' +
+        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">' +
+          '<div style="width:30px;height:30px;border-radius:8px;background:#EEF0FF;color:#4B5FFA;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">1</div>' +
+          '<div style="font-size:15px;color:#222;line-height:1.5;padding-top:3px;">Safari’nin altındaki <b>Paylaş</b> butonuna dokun ' + shareIco + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">' +
+          '<div style="width:30px;height:30px;border-radius:8px;background:#EEF0FF;color:#4B5FFA;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">2</div>' +
+          '<div style="font-size:15px;color:#222;line-height:1.5;padding-top:3px;">Açılan menüde <b>“Ana Ekrana Ekle”</b> ’ye dokun ' + plusIco + '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:4px;">' +
+          '<div style="width:30px;height:30px;border-radius:8px;background:#EEF0FF;color:#4B5FFA;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">3</div>' +
+          '<div style="font-size:15px;color:#222;line-height:1.5;padding-top:3px;">Sağ üstte <b>Ekle</b> ’ye dokun — hazır!</div>' +
+        '</div>';
+    } else if (_deferredPrompt) {
+      bodyHtml =
+        '<div style="font-size:14px;color:#555;margin-bottom:16px;">KartCRM’i ana ekranına eklemek için aşağıdaki butona dokun:</div>' +
+        '<button id="ig-install-btn" style="width:100%;background:#4B5FFA;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;">Ana Ekrana Ekle</button>';
+    } else {
+      bodyHtml =
+        '<div style="font-size:14px;color:#555;margin-bottom:16px;">KartCRM’i bir uygulama gibi açmak için ana ekranına ekle:</div>' +
+        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">' +
+          '<div style="width:30px;height:30px;border-radius:8px;background:#EEF0FF;color:#4B5FFA;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">1</div>' +
+          '<div style="font-size:15px;color:#222;line-height:1.5;padding-top:3px;">Tarayıcının sağ üstündeki <b>⋮</b> menüsüne dokun</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:4px;">' +
+          '<div style="width:30px;height:30px;border-radius:8px;background:#EEF0FF;color:#4B5FFA;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">2</div>' +
+          '<div style="font-size:15px;color:#222;line-height:1.5;padding-top:3px;"><b>“Ana ekrana ekle”</b> / <b>“Uygulamayı yükle”</b> seçeneğine dokun</div>' +
+        '</div>';
+    }
+
+    var ov = document.createElement('div');
+    ov.id = 'install-guide';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(20,22,40,.55);display:flex;align-items:flex-end;justify-content:center;';
+    ov.innerHTML =
+      '<div style="background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:22px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.2);">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">' +
+          '<div style="font-size:18px;font-weight:800;color:#1a1a2e;">Ana Ekrana Ekle</div>' +
+          '<button onclick="closeInstallGuide()" style="background:#f3f3f5;border:none;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;color:#666;">×</button>' +
+        '</div>' +
+        bodyHtml +
+      '</div>';
+    ov.addEventListener('click', function(e) { if (e.target === ov) closeInstallGuide(); });
+    document.body.appendChild(ov);
+
+    var instBtn = document.getElementById('ig-install-btn');
+    if (instBtn && _deferredPrompt) {
+      instBtn.addEventListener('click', async function() {
+        closeInstallGuide();
+        _deferredPrompt.prompt();
+        try { await _deferredPrompt.userChoice; } catch (e) {}
+        _deferredPrompt = null;
+      });
+    }
+  };
+
+  function dismissBanner() {
+    var b = document.getElementById('install-banner');
+    if (b) b.remove();
+    try { localStorage.setItem('kartcrm_install_hide', '1'); } catch (e) {}
+  }
+  window.dismissInstallBanner = dismissBanner;
+
+  function maybeShowBanner() {
+    if (isStandalone()) return; // zaten ana ekrandan açılmış
+    try { if (localStorage.getItem('kartcrm_install_hide') === '1') return; } catch (e) {}
+    if (document.getElementById('install-banner')) return;
+
+    var bar = document.createElement('div');
+    bar.id = 'install-banner';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:9000;background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.15);display:flex;align-items:center;gap:10px;padding:12px 14px;max-width:480px;margin:0 auto;';
+    bar.innerHTML =
+      '<div style="font-size:22px;flex:none;">📲</div>' +
+      '<div style="flex:1;font-size:13px;color:#333;line-height:1.35;">KartCRM’i <b>ana ekranına ekle</b>, uygulama gibi kullan.</div>' +
+      '<button onclick="showInstallGuide()" style="background:#4B5FFA;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex:none;">Nasıl?</button>' +
+      '<button onclick="dismissInstallBanner()" style="background:none;border:none;font-size:20px;color:#999;cursor:pointer;flex:none;line-height:1;">×</button>';
+    document.body.appendChild(bar);
+  }
+
+  function init() { setTimeout(maybeShowBanner, 1200); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
